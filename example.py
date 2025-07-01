@@ -32,6 +32,7 @@ except ImportError as e:
     import sys
     print("Available packages:")
     print([pkg for pkg in sys.modules.keys() if 'build' in pkg.lower()])
+    
 length, width, thickness = 80.0, 60.0, 10.0
 center_hole_dia = 22.0
 
@@ -39,14 +40,24 @@ with BuildPart() as ex2:
     Box(length, width, thickness)
     Cylinder(radius=center_hole_dia / 2, height=thickness, mode=Mode.SUBTRACT)
 
-brep_byte_array = io.BytesIO()
-export_brep(ex2.part, brep_byte_array)
-blob = Blob.new([to_js(brep_byte_array.getvalue(),create_pyproxies=False)])
-
+export_stl(ex2.part, "output.stl")
+with open("output.stl", 'rb') as fh:
+    stl = fh.read()
+blob = Blob.new([to_js(stl, create_pyproxies=False)])
 url = window.URL.createObjectURL(blob)
-a = document.createElement('a')
+a = document.createElement("a")
 a.href = url
-a.download = "output_filename.brep"
-document.body.appendChild(a)
+a.download = "output.stl"
 a.click()
-document.body.removeChild(a)
+
+# brep_byte_array = io.BytesIO()
+# export_brep(ex2.part, brep_byte_array)
+# blob = Blob.new([to_js(brep_byte_array.getvalue(),create_pyproxies=False)])
+
+# url = window.URL.createObjectURL(blob)
+# a = document.createElement('a')
+# a.href = url
+# a.download = "output_filename.brep"
+# document.body.appendChild(a)
+# a.click()
+# document.body.removeChild(a)

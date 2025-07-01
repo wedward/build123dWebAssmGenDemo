@@ -3,27 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Python WebAssembly Runner</title>
+    <title>3D Model Generator</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/pyodide/v0.28.0a3/full/pyodide.js"></script>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🐍 Python WebAssembly Runner</h1>
-            <p>Run Python code directly in your browser using WebAssembly!</p>
+            <h1>🔧 3D Model Generator</h1>
+            <p>Generate 3D models with custom parameters using Python and WebAssembly!</p>
         </header>
 
         <div class="main-content">
-            <div class="editor-section">
+            <div class="parameters-section">
                 <div class="section-header">
-                    <h2>Python Code Editor</h2>
-                    <div class="button-group">
-                        <button id="load-example">Load Example</button>
-                        <button id="clear-code">Clear</button>
+                    <h2>Model Parameters</h2>
+                </div>
+                <div class="parameter-grid">
+                    <div class="parameter-group">
+                        <label for="length">Length (mm):</label>
+                        <input type="number" id="length" value="80.0" step="0.1" min="0">
+                    </div>
+                    <div class="parameter-group">
+                        <label for="width">Width (mm):</label>
+                        <input type="number" id="width" value="60.0" step="0.1" min="0">
+                    </div>
+                    <div class="parameter-group">
+                        <label for="thickness">Thickness (mm):</label>
+                        <input type="number" id="thickness" value="10.0" step="0.1" min="0">
+                    </div>
+                    <div class="parameter-group">
+                        <label for="center-hole-dia">Center Hole Diameter (mm):</label>
+                        <input type="number" id="center-hole-dia" value="22.0" step="0.1" min="0">
                     </div>
                 </div>
-                <textarea id="python-code" placeholder="Enter your Python code here..."></textarea>
             </div>
 
             <div class="controls">

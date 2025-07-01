@@ -76,27 +76,62 @@ header p {
     transform: translateY(-1px);
 }
 
-.editor-section {
+.parameters-section {
     margin-bottom: 25px;
 }
 
-#python-code {
-    width: 100%;
-    height: 300px;
-    padding: 15px;
-    border: 2px solid #e2e8f0;
-    border-radius: 8px;
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-    font-size: 14px;
-    line-height: 1.5;
-    resize: vertical;
-    outline: none;
-    transition: border-color 0.2s;
+.parameter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
 }
 
-#python-code:focus {
+.parameter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.parameter-group label {
+    font-weight: 600;
+    color: #4a5568;
+    font-size: 0.9rem;
+}
+
+.parameter-group input {
+    padding: 12px 15px;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 16px;
+    outline: none;
+    transition: all 0.2s;
+    background: white;
+}
+
+.parameter-group input:focus {
     border-color: #667eea;
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.parameter-group input:hover:not(:focus) {
+    border-color: #cbd5e0;
+}
+
+.parameter-group input:invalid {
+    border-color: #f56565;
+}
+
+.parameter-group input:valid {
+    border-color: #48bb78;
+}
+
+/* Add subtle background pattern to parameter section */
+.parameters-section {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.02) 0%, rgba(118, 75, 162, 0.02) 100%);
+    padding: 20px;
+    border-radius: 10px;
+    border: 1px solid rgba(102, 126, 234, 0.1);
 }
 
 .controls {
@@ -209,5 +244,19 @@ header p {
     
     .button-group {
         align-self: flex-end;
+    }
+    
+    .parameter-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .parameter-group input {
+        font-size: 16px; /* Prevents zoom on iOS */
+    }
+    
+    #run-code {
+        padding: 12px 30px;
+        font-size: 1rem;
     }
 } 

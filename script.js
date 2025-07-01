@@ -2,14 +2,20 @@ let pyodide = null;
 let isInitialized = false;
 
 // DOM elements
-const pythonCodeTextarea = document.getElementById('python-code');
 const runButton = document.getElementById('run-code');
 const runText = document.getElementById('run-text');
 const outputDiv = document.getElementById('output');
 const statusSpan = document.getElementById('status');
-const loadExampleButton = document.getElementById('load-example');
-const clearCodeButton = document.getElementById('clear-code');
 const clearOutputButton = document.getElementById('clear-output');
+
+// Parameter input elements
+const lengthInput = document.getElementById('length');
+const widthInput = document.getElementById('width');
+const thicknessInput = document.getElementById('thickness');
+const centerHoleDiaInput = document.getElementById('center-hole-dia');
+
+// Store the base Python script
+let basePythonScript = '';
 
 // Initialize Pyodide
 async function initializePyodide() {
@@ -21,14 +27,14 @@ async function initializePyodide() {
         statusSpan.textContent = 'Installing Python packages...';
         await pyodide.loadPackage(['numpy', 'matplotlib', 'pandas', 'micropip', 'typing-extensions']);
         
+        // Load the base Python script
+        await loadBasePythonScript();
+        
         isInitialized = true;
         runButton.disabled = false;
-        runText.textContent = 'Run Python Code';
+        runText.textContent = 'Generate Model';
         statusSpan.textContent = 'Python environment ready! 🚀';
         statusSpan.className = 'success';
-        
-        // Load example code by default
-        loadExampleCode();
         
     } catch (error) {
         console.error('Failed to initialize Pyodide:', error);
@@ -38,26 +44,71 @@ async function initializePyodide() {
     }
 }
 
-// Run Python code
+// Load the base Python script
+async function loadBasePythonScript() {
+    try {
+        const response = await fetch('example.py');
+        basePythonScript = await response.text();
+    } catch (error) {
+        console.error('Could not load example.py:', error);
+        throw new Error('Failed to load base Python script');
+    }
+}
+
+// Get parameter values from input fields
+function getParameterValues() {
+    return {
+        length: parseFloat(lengthInput.value) || 80.0,
+        width: parseFloat(widthInput.value) || 60.0,
+        thickness: parseFloat(thicknessInput.value) || 10.0,
+        center_hole_dia: parseFloat(centerHoleDiaInput.value) || 22.0
+    };
+}
+
+// Substitute parameter values into the Python script
+function createParameterizedScript(params) {
+    // Replace the parameter assignments in the script
+    let script = basePythonScript;
+    
+    // Replace the parameter line with user values
+    script = script.replace(
+        /length, width, thickness = [\d.]+, [\d.]+, [\d.]+/,
+        `length, width, thickness = ${params.length}, ${params.width}, ${params.thickness}`
+    );
+    
+    script = script.replace(
+        /center_hole_dia = [\d.]+/,
+        `center_hole_dia = ${params.center_hole_dia}`
+    );
+    
+    return script;
+}
+
+// Run Python code with current parameter values
 async function runPythonCode() {
     if (!isInitialized) {
         alert('Python environment is not ready yet. Please wait...');
         return;
     }
 
-    const code = pythonCodeTextarea.value.trim();
-    if (!code) {
-        alert('Please enter some Python code to run.');
+    if (!basePythonScript) {
+        alert('Base Python script not loaded. Please refresh the page.');
         return;
     }
 
     // Show loading state
     runButton.disabled = true;
-    runText.textContent = 'Running...';
+    runText.textContent = 'Generating...';
     runText.parentElement.classList.add('loading');
     outputDiv.textContent = '';
 
     try {
+        // Get current parameter values
+        const params = getParameterValues();
+        
+        // Create parameterized script
+        const code = createParameterizedScript(params);
+        
         // Use async execution to support micropip
         let output = '';
         let error = '';
@@ -88,7 +139,7 @@ buffer.getvalue()
             outputDiv.textContent = `Error: ${error}`;
             outputDiv.style.color = '#f56565';
         } else {
-            outputDiv.textContent = output || 'Code executed successfully (no output)';
+            outputDiv.textContent = output || 'Model generated successfully (no output)';
             outputDiv.style.color = '#e2e8f0';
         }
 
@@ -98,28 +149,9 @@ buffer.getvalue()
     } finally {
         // Reset button state
         runButton.disabled = false;
-        runText.textContent = 'Run Python Code';
+        runText.textContent = 'Generate Model';
         runText.parentElement.classList.remove('loading');
     }
-}
-
-// Load example Python code
-function loadExampleCode() {
-    fetch('example.py')
-        .then(response => response.text())
-        .then(code => {
-            pythonCodeTextarea.value = code;
-        })
-        .catch(error => {
-            console.warn('Could not load example.py, using default example');
-            pythonCodeTextarea.value = `print("Hello World!")`;
-        });
-}
-
-// Clear code
-function clearCode() {
-    pythonCodeTextarea.value = '';
-    pythonCodeTextarea.focus();
 }
 
 // Clear output
@@ -129,18 +161,18 @@ function clearOutput() {
 
 // Event listeners
 runButton.addEventListener('click', runPythonCode);
-loadExampleButton.addEventListener('click', loadExampleCode);
-clearCodeButton.addEventListener('click', clearCode);
 clearOutputButton.addEventListener('click', clearOutput);
 
-// Allow Ctrl+Enter to run code
-pythonCodeTextarea.addEventListener('keydown', (event) => {
-    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
-        event.preventDefault();
-        if (!runButton.disabled) {
-            runPythonCode();
+// Allow Enter key to run code from parameter inputs
+[lengthInput, widthInput, thicknessInput, centerHoleDiaInput].forEach(input => {
+    input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            if (!runButton.disabled) {
+                runPythonCode();
+            }
         }
-    }
+    });
 });
 
 // Initialize when page loads
