@@ -6,6 +6,10 @@
     <title>3D Model Generator</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/pyodide/v0.28.0a3/full/pyodide.js"></script>
+    <!-- Three.js library for 3D rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 </head>
 <body>
     <div class="container">
@@ -45,9 +49,28 @@
                 </button>
             </div>
 
+            <div class="viewer-section">
+                <div class="section-header">
+                    <h2>3D Preview</h2>
+                    <div class="button-group">
+                        <button id="download-stl" disabled>Download STL</button>
+                        <button id="reset-view" disabled>Reset View</button>
+                    </div>
+                </div>
+                <div id="three-container">
+                    <div id="viewer-placeholder">
+                        <div class="placeholder-content">
+                            <div class="placeholder-icon">🎯</div>
+                            <p>Your 3D model will appear here</p>
+                            <p class="placeholder-hint">Click "Generate Model" to create and view your design</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="output-section">
                 <div class="section-header">
-                    <h2>Output</h2>
+                    <h2>Console Output</h2>
                     <button id="clear-output">Clear Output</button>
                 </div>
                 <div id="output"></div>

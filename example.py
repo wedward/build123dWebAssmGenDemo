@@ -49,15 +49,3 @@ a = document.createElement("a")
 a.href = url
 a.download = "output.stl"
 a.click()
-
-# brep_byte_array = io.BytesIO()
-# export_brep(ex2.part, brep_byte_array)
-# blob = Blob.new([to_js(brep_byte_array.getvalue(),create_pyproxies=False)])
-
-# url = window.URL.createObjectURL(blob)
-# a = document.createElement('a')
-# a.href = url
-# a.download = "output_filename.brep"
-# document.body.appendChild(a)
-# a.click()
-# document.body.removeChild(a)
