@@ -1,86 +1,172 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" style="margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>3D Model Generator</title>
-    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/pyodide/v0.28.0a3/full/pyodide.js"></script>
     <!-- Three.js library for 3D rendering -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <script>
+        // Tailwind config for custom colors and animations
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#f0f4ff',
+                            500: '#667eea',
+                            600: '#5a67d8',
+                            700: '#4c51bf'
+                        }
+                    },
+                    animation: {
+                        'slide-in': 'slideIn 0.3s ease-out',
+                        'fade-in': 'fadeIn 0.5s ease-out'
+                    },
+                    keyframes: {
+                        slideIn: {
+                            '0%': { transform: 'translateX(-100%)' },
+                            '100%': { transform: 'translateX(0)' }
+                        },
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
 </head>
-<body>
-    <div class="container">
-        <header>
-            <h1>🔧 3D Model Generator</h1>
-            <p>Generate 3D models with custom parameters using Python and WebAssembly!</p>
-        </header>
-
-        <div class="main-content">
-            <div class="parameters-section">
-                <div class="section-header">
-                    <h2>Model Parameters</h2>
-                </div>
-                <div class="parameter-grid">
-                    <div class="parameter-group">
-                        <label for="length">Length (mm):</label>
-                        <input type="number" id="length" value="80.0" step="0.1" min="0">
-                    </div>
-                    <div class="parameter-group">
-                        <label for="width">Width (mm):</label>
-                        <input type="number" id="width" value="60.0" step="0.1" min="0">
-                    </div>
-                    <div class="parameter-group">
-                        <label for="thickness">Thickness (mm):</label>
-                        <input type="number" id="thickness" value="10.0" step="0.1" min="0">
-                    </div>
-                    <div class="parameter-group">
-                        <label for="center-hole-dia">Center Hole Diameter (mm):</label>
-                        <input type="number" id="center-hole-dia" value="22.0" step="0.1" min="0">
-                    </div>
-                </div>
+<body class="bg-gray-900 text-white overflow-hidden" style="margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;">
+    <!-- Full-screen 3D Container -->
+    <div id="three-container" class="fixed inset-0 w-screen h-screen bg-gray-900 overflow-hidden" style="position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; z-index: 0 !important; background: #111827 !important;">
+        <div id="viewer-placeholder" class="absolute inset-0 flex items-center justify-center">
+            <div class="text-center text-gray-400">
+                <div class="text-6xl mb-4 animate-pulse">🎯</div>
+                <p class="text-xl mb-2">Your 3D model will appear here</p>
+                <p class="text-sm opacity-75">Configure parameters and click "Generate Model"</p>
             </div>
-
-            <div class="controls">
-                <button id="run-code" disabled>
-                    <span id="run-text">Loading Pyodide...</span>
-                </button>
-            </div>
-
-            <div class="viewer-section">
-                <div class="section-header">
-                    <h2>3D Preview</h2>
-                    <div class="button-group">
-                        <button id="download-stl" disabled>Download STL</button>
-                        <button id="reset-view" disabled>Reset View</button>
-                    </div>
-                </div>
-                <div id="three-container">
-                    <div id="viewer-placeholder">
-                        <div class="placeholder-content">
-                            <div class="placeholder-icon">🎯</div>
-                            <p>Your 3D model will appear here</p>
-                            <p class="placeholder-hint">Click "Generate Model" to create and view your design</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="output-section">
-                <div class="section-header">
-                    <h2>Console Output</h2>
-                    <button id="clear-output">Clear Output</button>
-                </div>
-                <div id="output"></div>
-            </div>
-        </div>
-
-        <div class="status">
-            <span id="status">Initializing Python environment...</span>
         </div>
     </div>
+
+    <!-- Floating Sidebar -->
+    <div class="fixed left-3 top-3 bottom-3 w-72 flex flex-col animate-slide-in z-50 lg:translate-x-0 -translate-x-full transition-transform duration-300 ease-in-out">
+        <!-- Main Sidebar Panel -->
+        <div class="bg-white/10 backdrop-blur-xl border border-white/20 text-white rounded-3xl shadow-2xl flex flex-col h-full overflow-hidden">
+            <!-- Header -->
+            <div class="p-5 bg-gradient-to-r from-blue-600/20 to-purple-600/20 border-b border-white/10">
+                <div>
+                    <h1 class="text-lg font-bold text-white">Model Generator</h1>
+                    <p class="text-xs text-white/70">Parametric 3D Design</p>
+                </div>
+            </div>
+
+            <!-- Parameters Section -->
+            <div class="flex-1 p-4 overflow-y-auto">
+                <div class="space-y-4">
+                    <!-- Parameters Header -->
+                    <div class="mb-4">
+                        <h2 class="text-base font-semibold text-white">Parameters</h2>
+                    </div>
+                    
+                    <!-- Modern Parameter Inputs -->
+                    <div class="space-y-3">
+                        <div class="parameter-group">
+                            <label for="length" class="block text-xs font-medium text-white/90 mb-1">
+                                Length (mm)
+                            </label>
+                            <input type="number" id="length" value="80.0" step="0.1" min="0"
+                                class="w-full px-3 py-2 bg-white/5 border border-white/30 rounded-xl text-white placeholder-white/50 focus:ring-2 focus:ring-blue-400/60 focus:border-blue-400/60 transition-all duration-300 backdrop-blur-sm hover:bg-white/10 hover:border-white/40">
+                        </div>
+                        
+                        <div class="parameter-group">
+                            <label for="width" class="block text-xs font-medium text-white/90 mb-1">
+                                Width (mm)
+                            </label>
+                            <input type="number" id="width" value="60.0" step="0.1" min="0"
+                                class="w-full px-3 py-2 bg-white/5 border border-white/30 rounded-xl text-white placeholder-white/50 focus:ring-2 focus:ring-blue-400/60 focus:border-blue-400/60 transition-all duration-300 backdrop-blur-sm hover:bg-white/10 hover:border-white/40">
+                        </div>
+                        
+                        <div class="parameter-group">
+                            <label for="thickness" class="block text-xs font-medium text-white/90 mb-1">
+                                Thickness (mm)
+                            </label>
+                            <input type="number" id="thickness" value="10.0" step="0.1" min="0"
+                                class="w-full px-3 py-2 bg-white/5 border border-white/30 rounded-xl text-white placeholder-white/50 focus:ring-2 focus:ring-blue-400/60 focus:border-blue-400/60 transition-all duration-300 backdrop-blur-sm hover:bg-white/10 hover:border-white/40">
+                        </div>
+                        
+                        <div class="parameter-group">
+                            <label for="center-hole-dia" class="block text-xs font-medium text-white/90 mb-1">
+                                Center Hole Diameter (mm)
+                            </label>
+                            <input type="number" id="center-hole-dia" value="22.0" step="0.1" min="0"
+                                class="w-full px-3 py-2 bg-white/5 border border-white/30 rounded-xl text-white placeholder-white/50 focus:ring-2 focus:ring-blue-400/60 focus:border-blue-400/60 transition-all duration-300 backdrop-blur-sm hover:bg-white/10 hover:border-white/40">
+                        </div>
+                    </div>
+
+                    <!-- Generate Button -->
+                    <div class="pt-3">
+                        <button id="run-code" disabled
+                            class="w-full py-3 px-5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg border border-white/20 backdrop-blur-sm">
+                            <span id="run-text" class="flex items-center justify-center">
+                                Loading Pyodide...
+                            </span>
+                        </button>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex space-x-2 pt-2">
+                        <button id="download-stl" disabled
+                            class="flex-1 py-2 px-3 bg-gradient-to-r from-green-600/80 to-emerald-600/80 hover:from-green-700/90 hover:to-emerald-700/90 border border-white/20 text-white font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-xs backdrop-blur-sm">
+                            Download STL
+                        </button>
+                        <button id="reset-view" disabled
+                            class="flex-1 py-2 px-3 bg-gradient-to-r from-slate-600/80 to-gray-600/80 hover:from-slate-700/90 hover:to-gray-700/90 border border-white/20 text-white font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-xs backdrop-blur-sm">
+                            Reset View
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Console Output Section -->
+            <div class="border-t border-white/10 bg-gradient-to-b from-black/10 to-black/30 backdrop-blur-sm">
+                <div class="p-3">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-xs font-semibold text-white">
+                            Console
+                        </h3>
+                        <button id="clear-output" 
+                            class="text-xs text-white/70 hover:text-white font-medium px-2 py-1 rounded hover:bg-white/10 transition-all duration-200">
+                            Clear
+                        </button>
+                    </div>
+                    <div id="output" 
+                        class="bg-black/40 text-green-400 p-2 rounded-lg font-mono text-xs h-16 overflow-y-auto border border-white/10 backdrop-blur-sm">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Bar (bottom right) -->
+    <div class="fixed bottom-4 right-4 z-40">
+        <div class="bg-gradient-to-r from-slate-800/80 to-gray-800/80 backdrop-blur-xl border border-white/20 text-white px-4 py-2 rounded-xl shadow-lg">
+            <span id="status" class="text-xs font-medium">Initializing Python environment...</span>
+        </div>
+    </div>
+
+    <!-- Mobile Toggle Button (hidden on desktop) -->
+    <button id="mobile-toggle" class="fixed top-4 left-4 z-50 lg:hidden bg-gradient-to-r from-blue-600/80 to-purple-600/80 backdrop-blur-xl border border-white/20 p-2 rounded-xl shadow-lg">
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+        </svg>
+    </button>
 
     <script src="script.js"></script>
 </body>
