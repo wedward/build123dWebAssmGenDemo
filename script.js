@@ -23,10 +23,11 @@ const viewerPlaceholder = document.getElementById('viewer-placeholder');
 // Sidebar element for mobile toggle
 const sidebar = document.querySelector('.fixed.left-3.top-3.bottom-3');
 
-// Store the base Python script and current STL data
+// Store the base Python script and current model data
 let basePythonScript = '';
 let currentStlBlob = null;
-let scene, camera, renderer, controls, currentMesh;
+let currentParts = []; // Array to store multiple parts
+let scene, camera, renderer, controls, currentMeshes = [];
 
 // Mobile sidebar state
 let sidebarOpen = false;
@@ -342,38 +343,63 @@ function createParameterizedScript(params) {
     return script;
 }
 
-// Load STL into Three.js viewer
-function loadStlInViewer(stlData) {
+// Load parts into Three.js viewer (supports both single STL and multiple parts)
+function loadPartsInViewer(partsData) {
     const loader = new THREE.STLLoader();
     
-    // STLLoader can handle ArrayBuffer directly for binary STL files
-    const geometry = loader.parse(stlData.buffer);
+    // Remove existing meshes
+    currentMeshes.forEach(mesh => {
+        scene.remove(mesh);
+    });
+    currentMeshes = [];
     
-    // Remove existing mesh
-    if (currentMesh) {
-        scene.remove(currentMesh);
-    }
+    // Handle both single part (legacy) and multiple parts format
+    const parts = Array.isArray(partsData) ? partsData : [{ 
+        name: 'model', 
+        color: '#4f46e5', 
+        stl: partsData 
+    }];
     
-    // Create material with enhanced appearance
-    const material = new THREE.MeshPhongMaterial({ 
-        color: 0x4f46e5, // Tailwind indigo-600
-        shininess: 100,
-        specular: 0x333333,
-        transparent: false
+    const allMeshes = [];
+    
+    parts.forEach((partData, index) => {
+        // Parse STL data
+        const stlData = new Uint8Array(partData.stl);
+        const geometry = loader.parse(stlData.buffer);
+        
+        // Create material with part-specific color
+        const color = partData.color ? partData.color : getDefaultColor(index);
+        const material = new THREE.MeshPhongMaterial({ 
+            color: color,
+            shininess: 100,
+            specular: 0x333333,
+            transparent: false
+        });
+        
+        // Create mesh
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.name = partData.name || `part_${index}`;
+        
+        allMeshes.push(mesh);
+        currentMeshes.push(mesh);
+        scene.add(mesh);
     });
     
-    // Create mesh
-    currentMesh = new THREE.Mesh(geometry, material);
-    currentMesh.castShadow = true;
-    currentMesh.receiveShadow = true;
-    
-    // Center the model
-    const box = new THREE.Box3().setFromObject(currentMesh);
-    const center = box.getCenter(new THREE.Vector3());
-    currentMesh.position.sub(center);
-    
-    // Add to scene
-    scene.add(currentMesh);
+    // Center all parts as a group
+    if (allMeshes.length > 0) {
+        const groupBox = new THREE.Box3();
+        allMeshes.forEach(mesh => {
+            const meshBox = new THREE.Box3().setFromObject(mesh);
+            groupBox.union(meshBox);
+        });
+        
+        const center = groupBox.getCenter(new THREE.Vector3());
+        allMeshes.forEach(mesh => {
+            mesh.position.sub(center);
+        });
+    }
     
     // Hide placeholder and show canvas
     viewerPlaceholder.style.display = 'none';
@@ -403,12 +429,33 @@ function loadStlInViewer(stlData) {
     resetCameraView();
 }
 
+// Get default colors for parts when not specified
+function getDefaultColor(index) {
+    const colors = [
+        '#4f46e5', // indigo
+        '#10b981', // emerald  
+        '#f59e0b', // amber
+        '#ef4444', // red
+        '#8b5cf6', // violet
+        '#06b6d4', // cyan
+        '#84cc16', // lime
+        '#f97316'  // orange
+    ];
+    return colors[index % colors.length];
+}
+
 // Reset camera view to fit the model
 function resetCameraView() {
-    if (!currentMesh) return;
+    if (currentMeshes.length === 0) return;
     
-    const box = new THREE.Box3().setFromObject(currentMesh);
-    const size = box.getSize(new THREE.Vector3());
+    // Calculate bounding box for all meshes
+    const groupBox = new THREE.Box3();
+    currentMeshes.forEach(mesh => {
+        const meshBox = new THREE.Box3().setFromObject(mesh);
+        groupBox.union(meshBox);
+    });
+    
+    const size = groupBox.getSize(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y, size.z);
     
     const fov = camera.fov * (Math.PI / 180);
@@ -420,23 +467,49 @@ function resetCameraView() {
     controls.update();
 }
 
-// Download STL file
+// Download STL file(s)
 function downloadStl() {
-    if (!currentStlBlob) {
-        alert('No STL file available for download');
-        return;
-    }
-    
     const params = getParameterValues();
-    // Create a generic filename using timestamp and first few parameters
+    const timestamp = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
     const paramStr = Object.entries(params)
         .slice(0, 3) // Take first 3 parameters for filename
         .map(([name, value]) => `${name}${value}`)
         .join('_');
-    const timestamp = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-    const filename = `model_${paramStr}_${timestamp}.stl`;
     
-    const url = window.URL.createObjectURL(currentStlBlob);
+    if (currentParts.length > 0) {
+        // Multiple parts - download each individually
+        if (currentParts.length === 1) {
+            // Single part in new format
+            const part = currentParts[0];
+            const blob = new Blob([part.stl], { type: 'application/octet-stream' });
+            const filename = `${part.name}_${paramStr}_${timestamp}.stl`;
+            downloadBlob(blob, filename);
+        } else {
+            // Multiple parts - download as zip would be ideal, but for now download separately
+            currentParts.forEach((part, index) => {
+                const blob = new Blob([part.stl], { type: 'application/octet-stream' });
+                const filename = `${part.name}_${paramStr}_${timestamp}.stl`;
+                
+                // Add small delay between downloads to avoid browser blocking
+                setTimeout(() => {
+                    downloadBlob(blob, filename);
+                }, index * 500);
+            });
+            
+            alert(`Downloading ${currentParts.length} separate STL files. Check your downloads folder.`);
+        }
+    } else if (currentStlBlob) {
+        // Legacy single STL blob
+        const filename = `model_${paramStr}_${timestamp}.stl`;
+        downloadBlob(currentStlBlob, filename);
+    } else {
+        alert('No STL file available for download');
+    }
+}
+
+// Helper function to download a blob
+function downloadBlob(blob, filename) {
+    const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
@@ -520,8 +593,9 @@ async function runPythonCode() {
         // Create parameterized script
         const code = createParameterizedScript(params);
         
-        // Clear previous STL data
+        // Clear previous model data
         window.stlData = null;
+        window.partsData = null;
         
         // Use async execution to support micropip
         let output = '';
@@ -547,17 +621,32 @@ finally:
 buffer.getvalue()
             `);
             
-            // Check if STL data is available
-            if (window.stlData) {
-                // Convert JavaScript array to Uint8Array
+            // Check if model data is available (supports both single and multiple parts)
+            if (window.partsData) {
+                // Multiple parts format
+                const partsData = Array.from(window.partsData).map(part => ({
+                    name: part.name,
+                    color: part.color,
+                    stl: new Uint8Array(part.stl)
+                }));
+                
+                currentParts = partsData;
+                
+                loadPartsInViewer(partsData);
+                
+                statusSpan.textContent = `Model generated successfully! 🎉 (${partsData.length} parts)`;
+                statusSpan.className = 'text-sm status-success';
+                
+            } else if (window.stlData) {
+                // Single part format (legacy support)
                 const stlData = new Uint8Array(window.stlData);
                 currentStlBlob = new Blob([stlData], { type: 'application/octet-stream' });
-                loadStlInViewer(stlData);
+                loadPartsInViewer(stlData);
                 
                 statusSpan.textContent = 'Model generated successfully! 🎉';
                 statusSpan.className = 'text-sm status-success';
             } else {
-                throw new Error('No STL data generated');
+                throw new Error('No model data generated');
             }
             
         } catch (e) {
