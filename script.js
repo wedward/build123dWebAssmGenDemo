@@ -7,6 +7,9 @@ const runText = document.getElementById('run-text');
 const outputDiv = document.getElementById('output');
 const statusSpan = document.getElementById('status');
 const clearOutputButton = document.getElementById('clear-output');
+const expandConsoleButton = document.getElementById('expand-console');
+const consoleSection = document.getElementById('console-section');
+const resizeHandle = document.getElementById('resize-handle');
 const downloadButton = document.getElementById('download-stl');
 const resetViewButton = document.getElementById('reset-view');
 const mobileToggle = document.getElementById('mobile-toggle');
@@ -32,15 +35,37 @@ let scene, camera, renderer, controls, currentMeshes = [];
 // Mobile sidebar state
 let sidebarOpen = false;
 
+// Console expansion state
+let consoleExpanded = true;
+
+// Global console functions
+function appendToConsole(message) {
+    outputDiv.innerText += message + '\n';
+    outputDiv.scrollTop = outputDiv.scrollHeight;
+}
+
+function clearConsole() {
+    outputDiv.innerText = '';
+}
+
+// Unified logging function - updates both console and status
+function updateStatus(fullMessage, shortMessage, statusClass = 'text-sm') {
+    // Update console with full message
+    appendToConsole(fullMessage);
+    
+    // Update status panel with short message
+    statusSpan.textContent = shortMessage;
+    statusSpan.className = statusClass;
+}
+
 // Initialize Pyodide
 async function initializePyodide() {
     try {
-        statusSpan.textContent = 'Loading Python WebAssembly runtime...';
-        statusSpan.className = 'text-sm status-pulse';
+        updateStatus('🔄 Loading Python WebAssembly runtime...', 'Loading Python WebAssembly runtime...', 'text-sm status-pulse');
         pyodide = await loadPyodide();
         
         // Install common packages
-        statusSpan.textContent = 'Installing basic Python packages...';
+        updateStatus('📦 Installing basic Python packages...', 'Installing basic Python packages...');
         await pyodide.loadPackage(['numpy', 'matplotlib', 'pandas', 'micropip', 'typing-extensions']);
         
         // Run the setup script (installs build123d and other packages)
@@ -57,15 +82,13 @@ async function initializePyodide() {
         isInitialized = true;
         runButton.disabled = false;
         runText.textContent = 'Generate Model';
-        statusSpan.textContent = 'Python environment ready! 🚀';
-        statusSpan.className = 'text-sm status-success';
+        updateStatus('🚀 Python environment ready!', 'Python environment ready! 🚀', 'text-sm status-success');
         
         runPythonCode();
         
     } catch (error) {
         console.error('Failed to initialize Pyodide:', error);
-        statusSpan.textContent = 'Failed to initialize Python environment ❌';
-        statusSpan.className = 'text-sm status-error';
+        updateStatus('❌ Failed to initialize Python environment: ' + error.message, 'Failed to initialize Python environment ❌', 'text-sm status-error');
         runText.textContent = 'Initialization Failed';
     }
 }
@@ -282,17 +305,18 @@ async function loadBasePythonScript() {
 // Run the setup script
 async function runSetupScript() {
     try {
-        statusSpan.textContent = 'Setting up Python environment and packages...';
+        updateStatus('⚙️ Setting up Python environment and packages...', 'Setting up Python environment and packages...');
         const response = await fetch('setup.py');
         const setupScript = await response.text();
         
         // Run the setup script
         await pyodide.runPythonAsync(setupScript);
         
-        statusSpan.textContent = 'Python packages installed successfully!';
+        updateStatus('✅ Python packages installed successfully!', 'Python packages installed successfully!');
         
     } catch (error) {
         console.error('Failed to run setup script:', error);
+        updateStatus('❌ Failed to set up Python environment: ' + error.message, 'Setup failed ❌', 'text-sm status-error');
         throw new Error('Failed to set up Python environment: ' + error.message);
     }
 }
@@ -563,6 +587,80 @@ function handleMobileLayout() {
     }
 }
 
+// Toggle console visibility
+function toggleConsole() {
+    consoleExpanded = !consoleExpanded;
+    const buttonText = expandConsoleButton.querySelector('span');
+    const buttonIcon = expandConsoleButton.querySelector('svg path');
+    
+    if (consoleExpanded) {
+        // Show console
+        outputDiv.style.display = 'block';
+        resizeHandle.style.display = 'flex';
+        buttonText.textContent = 'Hide';
+        buttonIcon.setAttribute('d', 'M17 10l-5 5-5-5'); // Down arrow
+    } else {
+        // Hide console
+        outputDiv.style.display = 'none';
+        resizeHandle.style.display = 'none';
+        buttonText.textContent = 'Show';
+        buttonIcon.setAttribute('d', 'M7 14l5-5 5 5'); // Up arrow
+    }
+}
+
+// Console resize functionality
+let isResizing = false;
+let startY = 0;
+let startHeight = 0;
+
+function initializeConsoleResize() {
+    // Mouse events
+    resizeHandle.addEventListener('mousedown', startResize);
+    
+    // Touch events for mobile
+    resizeHandle.addEventListener('touchstart', startResize);
+}
+
+function startResize(e) {
+    isResizing = true;
+    startY = e.clientY || e.touches[0].clientY;
+    startHeight = parseInt(document.defaultView.getComputedStyle(outputDiv).height, 10);
+    
+    document.addEventListener('mousemove', handleResize);
+    document.addEventListener('mouseup', stopResize);
+    document.addEventListener('touchmove', handleResize);
+    document.addEventListener('touchend', stopResize);
+    
+    document.body.style.cursor = 'ns-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+}
+
+function handleResize(e) {
+    if (!isResizing) return;
+    
+    const currentY = e.clientY || e.touches[0].clientY;
+    const deltaY = startY - currentY; // Invert direction: dragging up = positive delta = bigger console
+    const newHeight = startHeight + deltaY;
+    
+    // Enforce min/max constraints
+    const minHeight = 80;
+    const maxHeight = 400;
+    const constrainedHeight = Math.max(minHeight, Math.min(maxHeight, newHeight));
+    
+    outputDiv.style.height = constrainedHeight + 'px';
+}
+
+function stopResize() {
+    isResizing = false;
+    document.removeEventListener('mousemove', handleResize);
+    document.removeEventListener('mouseup', stopResize);
+    document.removeEventListener('touchmove', handleResize);
+    document.removeEventListener('touchend', stopResize);
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+}
+
 // Run Python code with current parameter values
 async function runPythonCode() {
     if (!isInitialized) {
@@ -577,9 +675,8 @@ async function runPythonCode() {
 
     // Show loading state
     runButton.disabled = true;
-    runText.textContent = 'Generating...';
+    runText.textContent = '⏳ Generating...';
     runText.parentElement.classList.add('loading');
-    outputDiv.textContent = 'Generating 3D model...';
     
     // Close mobile sidebar if open
     if (sidebarOpen && window.innerWidth < 1024) {
@@ -597,13 +694,12 @@ async function runPythonCode() {
         window.stlData = null;
         window.partsData = null;
         
-        // Use async execution to support micropip
-        let output = '';
-        let error = '';
-        
         try {
+            // Don't clear console - preserve previous logs
+            updateStatus('🔄 Starting model generation... (this may take 10-30 seconds)', 'Generating model... (this may take 10-30 seconds) ⏳', 'text-sm status-pulse');
+            
             // First run the generate script
-            output = await pyodide.runPythonAsync(`
+            const generationOutput = await pyodide.runPythonAsync(`
 import sys
 from io import StringIO
 
@@ -611,17 +707,31 @@ old_stdout = sys.stdout
 sys.stdout = buffer = StringIO()
 
 try:
+    print("Executing parametric model...")
 ${code.split('\n').map(line => '    ' + line).join('\n')}
-    print("Model generation complete")
+    print("✅ Model generation complete")
 except Exception as e:
-    print(f"Error in model generation: {str(e)}")
+    print(f"❌ Error in model generation: {str(e)}")
     import traceback
     traceback.print_exc()
+    raise e
 finally:
     sys.stdout = old_stdout
 
 buffer.getvalue()
             `);
+            
+            // Display generation output as it completes
+            if (generationOutput) {
+                appendToConsole('=== MODEL GENERATION OUTPUT ===');
+                generationOutput.split('\n').forEach(line => {
+                    if (line.trim()) {
+                        appendToConsole(line.trim());
+                    }
+                });
+            }
+            
+            updateStatus('🔄 Starting export process - generating STL files...', 'Exporting STL files... 📦');
             
             // Then run the export script
             const exportResponse = await fetch('export.py');
@@ -637,17 +747,25 @@ sys.stdout = buffer = StringIO()
 try:
 ${exportScript.split('\n').map(line => '    ' + line).join('\n')}
 except Exception as e:
-    print(f"Error in export: {str(e)}")
+    print(f"❌ Error in export: {str(e)}")
     import traceback
     traceback.print_exc()
+    raise e
 finally:
     sys.stdout = old_stdout
 
 buffer.getvalue()
             `);
             
-            // Combine outputs
-            output += '\n' + exportOutput;
+            // Display export output as it completes
+            if (exportOutput) {
+                appendToConsole('=== EXPORT PROCESS OUTPUT ===');
+                exportOutput.split('\n').forEach(line => {
+                    if (line.trim()) {
+                        appendToConsole(line.trim());
+                    }
+                });
+            }
             
             // Check if model data is available (supports both single and multiple parts)
             if (window.partsData) {
@@ -662,8 +780,7 @@ buffer.getvalue()
                 
                 loadPartsInViewer(partsData);
                 
-                statusSpan.textContent = `Model generated successfully! 🎉 (${partsData.length} parts)`;
-                statusSpan.className = 'text-sm status-success';
+                updateStatus(`🎉 Success! Generated ${partsData.length} parts for 3D viewer - Model generated successfully!`, `Model generated successfully! 🎉 (${partsData.length} parts)`, 'text-sm status-success');
                 
             } else if (window.stlData) {
                 // Single part format (legacy support)
@@ -671,29 +788,19 @@ buffer.getvalue()
                 currentStlBlob = new Blob([stlData], { type: 'application/octet-stream' });
                 loadPartsInViewer(stlData);
                 
-                statusSpan.textContent = 'Model generated successfully! 🎉';
-                statusSpan.className = 'text-sm status-success';
+                updateStatus('🎉 Success! Generated model for 3D viewer - Model generated successfully!', 'Model generated successfully! 🎉', 'text-sm status-success');
             } else {
+                appendToConsole('❌ No model data generated');
                 throw new Error('No model data generated');
             }
             
         } catch (e) {
-            error = e.message;
-        }
-
-        // Display results
-        if (error) {
-            outputDiv.textContent = `Error: ${error}`;
-            statusSpan.textContent = 'Generation failed ❌';
-            statusSpan.className = 'text-sm status-error';
-        } else {
-            outputDiv.textContent = output || 'Model generated successfully';
+            updateStatus(`❌ Runtime Error: ${e.message} - Generation failed`, 'Generation failed ❌', 'text-sm status-error');
         }
 
     } catch (error) {
-        outputDiv.textContent = `Runtime Error: ${error.message}`;
-        statusSpan.textContent = 'Generation failed ❌';
-        statusSpan.className = 'text-sm status-error';
+        outputDiv.innerText = `Runtime Error: ${error.message}`;
+        updateStatus(`❌ Outer Runtime Error: ${error.message}`, 'Generation failed ❌', 'text-sm status-error');
     } finally {
         // Reset button state
         runButton.disabled = false;
@@ -704,12 +811,13 @@ buffer.getvalue()
 
 // Clear output
 function clearOutput() {
-    outputDiv.textContent = '';
+    outputDiv.innerText = '';
 }
 
 // Event listeners
 runButton.addEventListener('click', runPythonCode);
 clearOutputButton.addEventListener('click', clearOutput);
+expandConsoleButton.addEventListener('click', toggleConsole);
 downloadButton.addEventListener('click', downloadStl);
 resetViewButton.addEventListener('click', resetCameraView);
 reloadParamsButton.addEventListener('click', reloadParameterDefinitions);
@@ -726,7 +834,7 @@ window.addEventListener('resize', () => {
 // Load parameter definitions early for better UX
 async function loadParameterDefinitionsEarly() {
     try {
-        statusSpan.textContent = 'Loading parameter definitions...';
+        updateStatus('📋 Loading parameter definitions...', 'Loading parameter definitions...');
         const response = await fetch('generate.py');
         const scriptContent = await response.text();
         
@@ -736,15 +844,14 @@ async function loadParameterDefinitionsEarly() {
         // Generate dynamic input fields immediately
         generateParameterInputs();
         
-        statusSpan.textContent = 'Parameters loaded! Starting Python environment...';
+        updateStatus('✅ Parameters loaded! Starting Python environment...', 'Parameters loaded! Starting Python environment...');
         
         // Store the script content for later use
         basePythonScript = scriptContent;
         
     } catch (error) {
         console.error('Failed to load parameter definitions:', error);
-        statusSpan.textContent = 'Failed to load parameters ❌';
-        statusSpan.className = 'text-sm status-error';
+        updateStatus('❌ Failed to load parameter definitions: ' + error.message, 'Failed to load parameters ❌', 'text-sm status-error');
         
         // Still try to initialize Pyodide even if parameter loading fails
         throw error;
@@ -758,8 +865,7 @@ async function reloadParameterDefinitions() {
         reloadParamsButton.disabled = true;
         reloadParamsButton.innerHTML = '<svg class="w-3 h-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg><span>Reloading...</span>';
         
-        statusSpan.textContent = 'Reloading parameter definitions...';
-        statusSpan.className = 'text-sm status-pulse';
+        updateStatus('🔄 Reloading parameter definitions...', 'Reloading parameter definitions...', 'text-sm status-pulse');
         
         // Preserve existing parameter values
         const existingValues = {};
@@ -791,8 +897,7 @@ async function reloadParameterDefinitions() {
             }
         });
         
-        statusSpan.textContent = 'Parameters reloaded successfully! 🔄';
-        statusSpan.className = 'text-sm status-success';
+        updateStatus('✅ Parameters reloaded successfully! 🔄', 'Parameters reloaded successfully! 🔄', 'text-sm status-success');
         
         // Show a brief success message
         setTimeout(() => {
@@ -803,8 +908,7 @@ async function reloadParameterDefinitions() {
         
     } catch (error) {
         console.error('Failed to reload parameter definitions:', error);
-        statusSpan.textContent = 'Failed to reload parameters ❌';
-        statusSpan.className = 'text-sm status-error';
+        updateStatus('❌ Failed to reload parameter definitions: ' + error.message, 'Failed to reload parameters ❌', 'text-sm status-error');
     } finally {
         // Re-enable the reload button
         reloadParamsButton.disabled = false;
@@ -814,6 +918,9 @@ async function reloadParameterDefinitions() {
 
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', async () => {
+    // Initialize console resize functionality
+    initializeConsoleResize();
+    
     // Load parameters first for immediate UI feedback
     try {
         await loadParameterDefinitionsEarly();
