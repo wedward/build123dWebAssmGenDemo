@@ -11,11 +11,9 @@ const downloadButton = document.getElementById('download-stl');
 const resetViewButton = document.getElementById('reset-view');
 const mobileToggle = document.getElementById('mobile-toggle');
 
-// Parameter input elements
-const lengthInput = document.getElementById('length');
-const widthInput = document.getElementById('width');
-const thicknessInput = document.getElementById('thickness');
-const centerHoleDiaInput = document.getElementById('center-hole-dia');
+// Dynamic parameter storage
+let parameterDefinitions = {};
+let parameterInputs = {};
 
 // Three.js elements
 const threeContainer = document.getElementById('three-container');
@@ -46,8 +44,10 @@ async function initializePyodide() {
         // Run the setup script (installs build123d and other packages)
         await runSetupScript();
         
-        // Load the generation Python script
-        await loadBasePythonScript();
+        // Skip loading the script if already loaded during early parameter loading
+        if (!basePythonScript) {
+            await loadBasePythonScript();
+        }
         
         // Initialize Three.js viewer
         initThreeJS();
@@ -164,14 +164,116 @@ function animate() {
     if (renderer && scene && camera) renderer.render(scene, camera);
 }
 
+// Parse parameter definitions from Python script
+function parseParameterDefinitions(scriptContent) {
+    const startMarker = '# PARAMETERS_START';
+    const endMarker = '# PARAMETERS_END';
+    
+    const startIndex = scriptContent.indexOf(startMarker);
+    const endIndex = scriptContent.indexOf(endMarker);
+    
+    if (startIndex === -1 || endIndex === -1) {
+        throw new Error('Parameter definitions not found in script');
+    }
+    
+    // Extract the JSON between the markers
+    const paramSection = scriptContent.substring(startIndex + startMarker.length, endIndex);
+    
+    // Remove comment characters and parse JSON
+    const jsonString = paramSection
+        .split('\n')
+        .map(line => line.replace(/^#\s*/, ''))
+        .join('\n')
+        .trim();
+    
+    try {
+        return JSON.parse(jsonString);
+    } catch (error) {
+        throw new Error('Invalid parameter definition JSON: ' + error.message);
+    }
+}
+
+// Generate dynamic input fields based on parameter definitions
+function generateParameterInputs() {
+    // Find the container for dynamic parameter inputs
+    const parameterContainer = document.querySelector('.space-y-3');
+    
+    // Clear existing content (loading message)
+    parameterContainer.innerHTML = '';
+    
+    // Generate new inputs based on parameter definitions
+    Object.entries(parameterDefinitions).forEach(([paramName, paramDef]) => {
+        const inputContainer = document.createElement('div');
+        inputContainer.className = 'parameter-group';
+        
+        const label = document.createElement('label');
+        label.htmlFor = `param-${paramName}`;
+        label.className = 'block text-xs font-medium text-white/90 mb-1';
+        label.textContent = paramDef.label;
+        
+        const input = document.createElement('input');
+        input.type = paramDef.type;
+        input.id = `param-${paramName}`;
+        input.name = paramName;
+        input.value = paramDef.default;
+        input.min = paramDef.min;
+        input.max = paramDef.max;
+        input.step = paramDef.step;
+        input.className = 'w-full px-3 py-2 bg-white/5 border border-white/30 rounded-xl text-white placeholder-white/50 focus:ring-2 focus:ring-blue-400/60 focus:border-blue-400/60 transition-all duration-300 backdrop-blur-sm hover:bg-white/10 hover:border-white/40';
+        
+        if (paramDef.description) {
+            input.title = paramDef.description;
+        }
+        
+        // Add input validation and Enter key handling
+        input.addEventListener('input', (event) => {
+            const value = parseFloat(event.target.value);
+            if (isNaN(value) || value < paramDef.min || value > paramDef.max) {
+                event.target.classList.add('border-red-300', 'ring-red-200');
+                event.target.classList.remove('border-white/30');
+            } else {
+                event.target.classList.remove('border-red-300', 'ring-red-200');
+                event.target.classList.add('border-white/30');
+            }
+        });
+        
+        input.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                if (!runButton.disabled) {
+                    runPythonCode();
+                }
+            }
+        });
+        
+        inputContainer.appendChild(label);
+        inputContainer.appendChild(input);
+        parameterContainer.appendChild(inputContainer);
+        
+        // Store reference to input
+        parameterInputs[paramName] = input;
+    });
+}
+
 // Load the generation Python script
 async function loadBasePythonScript() {
     try {
         const response = await fetch('generate.py');
         basePythonScript = await response.text();
+        
+        // Parse parameter definitions from the script (if not already done)
+        if (Object.keys(parameterDefinitions).length === 0) {
+            parameterDefinitions = parseParameterDefinitions(basePythonScript);
+        }
+        
+        // Generate dynamic input fields (if not already done)
+        if (Object.keys(parameterInputs).length === 0) {
+            generateParameterInputs();
+        }
+        
     } catch (error) {
         console.error('Could not load generate.py:', error);
-        throw new Error('Failed to load generation Python script');
+        throw new Error('Failed to load generation Python script: ' + error.message);
     }
 }
 
@@ -193,26 +295,48 @@ async function runSetupScript() {
     }
 }
 
-// Get parameter values from input fields
+// Get parameter values from dynamic input fields
 function getParameterValues() {
-    return {
-        length: parseFloat(lengthInput.value) || 80.0,
-        width: parseFloat(widthInput.value) || 60.0,
-        thickness: parseFloat(thicknessInput.value) || 10.0,
-        center_hole_dia: parseFloat(centerHoleDiaInput.value) || 22.0
-    };
+    const values = {};
+    
+    Object.entries(parameterInputs).forEach(([paramName, input]) => {
+        const value = parseFloat(input.value);
+        const defaultValue = parameterDefinitions[paramName].default;
+        values[paramName] = isNaN(value) ? defaultValue : value;
+    });
+    
+    return values;
 }
 
 // Create parameterized script with user input values using template substitution
 function createParameterizedScript(params) {
-    // Use simple template substitution instead of fragile regex replacement
     let script = basePythonScript;
     
-    // Replace template placeholders with actual parameter values
-    script = script.replace('{{LENGTH}}', params.length);
-    script = script.replace('{{WIDTH}}', params.width);
-    script = script.replace('{{THICKNESS}}', params.thickness);
-    script = script.replace('{{CENTER_HOLE_DIA}}', params.center_hole_dia);
+    // Auto-generate variable assignments right after PARAMETERS_END
+    const endMarker = '# PARAMETERS_END';
+    const endMarkerIndex = script.indexOf(endMarker);
+    
+    if (endMarkerIndex !== -1) {
+        // Generate variable assignment lines
+        const variableAssignments = '\n\n# Auto-generated parameter variables\n' +
+            Object.keys(parameterDefinitions)
+                .map(paramName => `${paramName} = {{${paramName}}}`)
+                .join('\n');
+        
+        // Find the end of the PARAMETERS_END line
+        const lineEnd = script.indexOf('\n', endMarkerIndex);
+        
+        // Insert variable assignments right after PARAMETERS_END
+        script = script.substring(0, lineEnd) + 
+                variableAssignments + 
+                script.substring(lineEnd);
+    }
+    
+    // Then, replace template placeholders with actual parameter values
+    Object.entries(params).forEach(([paramName, value]) => {
+        const placeholder = `{{${paramName}}}`;
+        script = script.replace(placeholder, value);
+    });
     
     return script;
 }
@@ -303,7 +427,13 @@ function downloadStl() {
     }
     
     const params = getParameterValues();
-    const filename = `model_${params.length}x${params.width}x${params.thickness}.stl`;
+    // Create a generic filename using timestamp and first few parameters
+    const paramStr = Object.entries(params)
+        .slice(0, 3) // Take first 3 parameters for filename
+        .map(([name, value]) => `${name}${value}`)
+        .join('_');
+    const timestamp = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const filename = `model_${paramStr}_${timestamp}.stl`;
     
     const url = window.URL.createObjectURL(currentStlBlob);
     const a = document.createElement('a');
@@ -472,32 +602,46 @@ window.addEventListener('resize', () => {
     handleMobileLayout();
 });
 
-// Allow Enter key to run code from parameter inputs
-[lengthInput, widthInput, thicknessInput, centerHoleDiaInput].forEach(input => {
-    input.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            if (!runButton.disabled) {
-                runPythonCode();
-            }
-        }
-    });
-    
-    // Add real-time validation feedback
-    input.addEventListener('input', (event) => {
-        const value = parseFloat(event.target.value);
-        if (isNaN(value) || value < 0) {
-            event.target.classList.add('border-red-300', 'ring-red-200');
-            event.target.classList.remove('border-gray-300');
-        } else {
-            event.target.classList.remove('border-red-300', 'ring-red-200');
-            event.target.classList.add('border-gray-300');
-        }
-    });
-});
+// Event handlers for dynamic inputs are set up in generateParameterInputs()
+
+// Load parameter definitions early for better UX
+async function loadParameterDefinitionsEarly() {
+    try {
+        statusSpan.textContent = 'Loading parameter definitions...';
+        const response = await fetch('generate.py');
+        const scriptContent = await response.text();
+        
+        // Parse parameter definitions from the script
+        parameterDefinitions = parseParameterDefinitions(scriptContent);
+        
+        // Generate dynamic input fields immediately
+        generateParameterInputs();
+        
+        statusSpan.textContent = 'Parameters loaded! Starting Python environment...';
+        
+        // Store the script content for later use
+        basePythonScript = scriptContent;
+        
+    } catch (error) {
+        console.error('Failed to load parameter definitions:', error);
+        statusSpan.textContent = 'Failed to load parameters ❌';
+        statusSpan.className = 'text-sm status-error';
+        
+        // Still try to initialize Pyodide even if parameter loading fails
+        throw error;
+    }
+}
 
 // Initialize when page loads
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    // Load parameters first for immediate UI feedback
+    try {
+        await loadParameterDefinitionsEarly();
+    } catch (error) {
+        console.error('Parameter loading failed, continuing with Pyodide initialization');
+    }
+    
+    // Then initialize Pyodide in parallel
     initializePyodide();
     handleMobileLayout();
 }); 
