@@ -12,6 +12,8 @@ const expandConsoleButton = document.getElementById('expand-console');
 const consoleSection = document.getElementById('console-section');
 const resizeHandle = document.getElementById('resize-handle');
 const downloadButton = document.getElementById('download-stl');
+const downloadStepButton = document.getElementById('download-step');
+const downloadBrepButton = document.getElementById('download-brep');
 const resetViewButton = document.getElementById('reset-view');
 const mobileToggle = document.getElementById('mobile-toggle');
 const reloadParamsButton = document.getElementById('reload-params');
@@ -486,6 +488,8 @@ function loadPartsInViewer(partsData) {
     
     // Enable buttons
     downloadButton.disabled = false;
+    downloadStepButton.disabled = false;
+    downloadBrepButton.disabled = false;
     resetViewButton.disabled = false;
     
     // Fit camera to model
@@ -567,6 +571,90 @@ function downloadStl() {
         downloadBlob(currentStlBlob, filename);
     } else {
         alert('No STL file available for download');
+    }
+}
+
+// Download STEP file(s)
+function downloadStep() {
+    const params = getParameterValues();
+    const timestamp = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const paramStr = Object.entries(params)
+        .slice(0, 3) // Take first 3 parameters for filename
+        .map(([name, value]) => `${name}${value}`)
+        .join('_');
+    
+    if (currentParts.length > 0) {
+        // Check if STEP data is available
+        const partsWithStep = currentParts.filter(part => part.step);
+        if (partsWithStep.length === 0) {
+            alert('No STEP files available for download. Please regenerate the model.');
+            return;
+        }
+        
+        if (partsWithStep.length === 1) {
+            // Single part with STEP data
+            const part = partsWithStep[0];
+            const blob = new Blob([part.step], { type: 'application/octet-stream' });
+            const filename = `${part.name}_${paramStr}_${timestamp}.step`;
+            downloadBlob(blob, filename);
+        } else {
+            // Multiple parts - download each separately
+            partsWithStep.forEach((part, index) => {
+                const blob = new Blob([part.step], { type: 'application/octet-stream' });
+                const filename = `${part.name}_${paramStr}_${timestamp}.step`;
+                
+                // Add small delay between downloads to avoid browser blocking
+                setTimeout(() => {
+                    downloadBlob(blob, filename);
+                }, index * 500);
+            });
+            
+            alert(`Downloading ${partsWithStep.length} separate STEP files. Check your downloads folder.`);
+        }
+    } else {
+        alert('No STEP files available for download');
+    }
+}
+
+// Download BREP file(s)
+function downloadBrep() {
+    const params = getParameterValues();
+    const timestamp = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const paramStr = Object.entries(params)
+        .slice(0, 3) // Take first 3 parameters for filename
+        .map(([name, value]) => `${name}${value}`)
+        .join('_');
+    
+    if (currentParts.length > 0) {
+        // Check if BREP data is available
+        const partsWithBrep = currentParts.filter(part => part.brep);
+        if (partsWithBrep.length === 0) {
+            alert('No BREP files available for download. Please regenerate the model.');
+            return;
+        }
+        
+        if (partsWithBrep.length === 1) {
+            // Single part with BREP data
+            const part = partsWithBrep[0];
+            const blob = new Blob([part.brep], { type: 'application/octet-stream' });
+            const filename = `${part.name}_${paramStr}_${timestamp}.brep`;
+            downloadBlob(blob, filename);
+        } else {
+            // Multiple parts - download each separately
+            partsWithBrep.forEach((part, index) => {
+                const blob = new Blob([part.brep], { type: 'application/octet-stream' });
+                const filename = `${part.name}_${paramStr}_${timestamp}.brep`;
+                
+                // Add small delay between downloads to avoid browser blocking
+                setTimeout(() => {
+                    downloadBlob(blob, filename);
+                }, index * 500);
+            });
+            
+            alert(`Downloading ${partsWithBrep.length} separate BREP files. Check your downloads folder.`);
+        }
+    } else {
+        alert('No BREP files available for download');
     }
 }
 
@@ -775,7 +863,7 @@ buffer.getvalue()
                 });
             }
             
-            updateStatus('🔄 Starting export process - generating STL files...', 'Exporting STL files... 📦');
+            updateStatus('🔄 Starting export process - generating STL, STEP, and BREP files...', 'Exporting STL, STEP, and BREP files... 📦');
             
             // Then run the export script
             const exportResponse = await fetch('export.py');
@@ -857,6 +945,8 @@ runButton.addEventListener('click', runPythonCode);
 clearOutputButton.addEventListener('click', clearOutput);
 expandConsoleButton.addEventListener('click', toggleConsole);
 downloadButton.addEventListener('click', downloadStl);
+downloadStepButton.addEventListener('click', downloadStep);
+downloadBrepButton.addEventListener('click', downloadBrep);
 resetViewButton.addEventListener('click', resetCameraView);
 reloadParamsButton.addEventListener('click', reloadParameterDefinitions);
 mobileToggle.addEventListener('click', toggleSidebar);

@@ -6,7 +6,7 @@ A web-based 3D model generator that creates parametric models using Python and W
 
 - **Parametric 3D modeling** - Adjust dimensions with simple input fields
 - **Real-time 3D preview** - See your model instantly in the browser
-- **STL export** - Download your models for 3D printing
+- **Multi-format export** - Download your models as STL, STEP, or BREP files
 - **Browser-based** - No software installation required
 
 ## Requirements
@@ -27,7 +27,7 @@ A web-based 3D model generator that creates parametric models using Python and W
 
 4. **Click "Generate Model"** to create and view your 3D model
 
-5. **Download STL** when ready for 3D printing
+5. **Download files** in your preferred format (STL, STEP, or BREP) when ready
 
 ## What it does
 

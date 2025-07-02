@@ -17,7 +17,7 @@ if not isinstance(output, list):
 if len(output) == 0:
     raise ValueError("Output list is empty. Please add at least one part.")
 
-# Export each part individually and collect STL data
+# Export each part individually and collect STL, STEP, and BREP data
 parts_data = []
 for i, part_info in enumerate(output):
     # Validate part structure
@@ -29,19 +29,34 @@ for i, part_info in enumerate(output):
     if missing_keys:
         raise ValueError(f"Part {i} is missing required keys: {missing_keys}")
     
-    # Generate filename and export STL
-    filename = f"output_part_{i}_{part_info['name']}.stl"
-    export_stl(part_info['part'], filename)
+    # Generate filenames and export STL, STEP, and BREP
+    stl_filename = f"output_part_{i}_{part_info['name']}.stl"
+    step_filename = f"output_part_{i}_{part_info['name']}.step"
+    brep_filename = f"output_part_{i}_{part_info['name']}.brep"
+    
+    export_stl(part_info['part'], stl_filename)
+    export_step(part_info['part'], step_filename)
+    export_brep(part_info['part'], brep_filename)
     
     # Read STL data
-    with open(filename, 'rb') as fh:
+    with open(stl_filename, 'rb') as fh:
         stl_data = fh.read()
+    
+    # Read STEP data
+    with open(step_filename, 'rb') as fh:
+        step_data = fh.read()
+    
+    # Read BREP data
+    with open(brep_filename, 'rb') as fh:
+        brep_data = fh.read()
     
     # Prepare part data for JavaScript (include opacity if specified)
     part_data = {
         'name': part_info['name'],
         'color': part_info['color'],
         'stl': to_js(stl_data, create_pyproxies=False),
+        'step': to_js(step_data, create_pyproxies=False),
+        'brep': to_js(brep_data, create_pyproxies=False),
     }
     # Add opacity if specified
     if 'opacity' in part_info:
