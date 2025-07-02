@@ -40,10 +40,13 @@ async function initializePyodide() {
         pyodide = await loadPyodide();
         
         // Install common packages
-        statusSpan.textContent = 'Installing Python packages...';
+        statusSpan.textContent = 'Installing basic Python packages...';
         await pyodide.loadPackage(['numpy', 'matplotlib', 'pandas', 'micropip', 'typing-extensions']);
         
-        // Load the base Python script
+        // Run the setup script (installs build123d and other packages)
+        await runSetupScript();
+        
+        // Load the generation Python script
         await loadBasePythonScript();
         
         // Initialize Three.js viewer
@@ -54,6 +57,8 @@ async function initializePyodide() {
         runText.textContent = 'Generate Model';
         statusSpan.textContent = 'Python environment ready! 🚀';
         statusSpan.className = 'text-sm status-success';
+        
+        runPythonCode();
         
     } catch (error) {
         console.error('Failed to initialize Pyodide:', error);
@@ -159,14 +164,32 @@ function animate() {
     if (renderer && scene && camera) renderer.render(scene, camera);
 }
 
-// Load the base Python script
+// Load the generation Python script
 async function loadBasePythonScript() {
     try {
-        const response = await fetch('example.py');
+        const response = await fetch('generate.py');
         basePythonScript = await response.text();
     } catch (error) {
-        console.error('Could not load example.py:', error);
-        throw new Error('Failed to load base Python script');
+        console.error('Could not load generate.py:', error);
+        throw new Error('Failed to load generation Python script');
+    }
+}
+
+// Run the setup script
+async function runSetupScript() {
+    try {
+        statusSpan.textContent = 'Setting up Python environment and packages...';
+        const response = await fetch('setup.py');
+        const setupScript = await response.text();
+        
+        // Run the setup script
+        await pyodide.runPythonAsync(setupScript);
+        
+        statusSpan.textContent = 'Python packages installed successfully!';
+        
+    } catch (error) {
+        console.error('Failed to run setup script:', error);
+        throw new Error('Failed to set up Python environment: ' + error.message);
     }
 }
 
@@ -180,7 +203,7 @@ function getParameterValues() {
     };
 }
 
-// Substitute parameter values into the Python script
+// Create parameterized script with user input values
 function createParameterizedScript(params) {
     // Replace the parameter assignments in the script
     let script = basePythonScript;
@@ -196,13 +219,11 @@ function createParameterizedScript(params) {
         `center_hole_dia = ${params.center_hole_dia}`
     );
     
-    // Modify the script to return STL data instead of auto-downloading
+    // Modify the script to store STL data for 3D viewer instead of auto-downloading
     script = script.replace(
         /a\.click\(\)/,
         `# Store STL data for 3D viewer instead of auto-downloading
-from pyodide.ffi import to_js
-import js
-js.window.stlData = to_js(stl, create_pyproxies=False)
+window.stlData = to_js(stl, create_pyproxies=False)
 print("STL data ready for 3D viewer")`
     );
     
@@ -359,7 +380,7 @@ async function runPythonCode() {
     }
 
     if (!basePythonScript) {
-        alert('Base Python script not loaded. Please refresh the page.');
+        alert('Generation script not loaded. Please refresh the page.');
         return;
     }
 
