@@ -203,29 +203,16 @@ function getParameterValues() {
     };
 }
 
-// Create parameterized script with user input values
+// Create parameterized script with user input values using template substitution
 function createParameterizedScript(params) {
-    // Replace the parameter assignments in the script
+    // Use simple template substitution instead of fragile regex replacement
     let script = basePythonScript;
     
-    // Replace the parameter line with user values
-    script = script.replace(
-        /length, width, thickness = [\d.]+, [\d.]+, [\d.]+/,
-        `length, width, thickness = ${params.length}, ${params.width}, ${params.thickness}`
-    );
-    
-    script = script.replace(
-        /center_hole_dia = [\d.]+/,
-        `center_hole_dia = ${params.center_hole_dia}`
-    );
-    
-    // Modify the script to store STL data for 3D viewer instead of auto-downloading
-    script = script.replace(
-        /a\.click\(\)/,
-        `# Store STL data for 3D viewer instead of auto-downloading
-window.stlData = to_js(stl, create_pyproxies=False)
-print("STL data ready for 3D viewer")`
-    );
+    // Replace template placeholders with actual parameter values
+    script = script.replace('{{LENGTH}}', params.length);
+    script = script.replace('{{WIDTH}}', params.width);
+    script = script.replace('{{THICKNESS}}', params.thickness);
+    script = script.replace('{{CENTER_HOLE_DIA}}', params.center_hole_dia);
     
     return script;
 }
