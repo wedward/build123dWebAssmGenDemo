@@ -602,6 +602,7 @@ async function runPythonCode() {
         let error = '';
         
         try {
+            // First run the generate script
             output = await pyodide.runPythonAsync(`
 import sys
 from io import StringIO
@@ -611,8 +612,9 @@ sys.stdout = buffer = StringIO()
 
 try:
 ${code.split('\n').map(line => '    ' + line).join('\n')}
+    print("Model generation complete")
 except Exception as e:
-    print(f"Error: {str(e)}")
+    print(f"Error in model generation: {str(e)}")
     import traceback
     traceback.print_exc()
 finally:
@@ -620,6 +622,32 @@ finally:
 
 buffer.getvalue()
             `);
+            
+            // Then run the export script
+            const exportResponse = await fetch('export.py');
+            const exportScript = await exportResponse.text();
+            
+            const exportOutput = await pyodide.runPythonAsync(`
+import sys
+from io import StringIO
+
+old_stdout = sys.stdout
+sys.stdout = buffer = StringIO()
+
+try:
+${exportScript.split('\n').map(line => '    ' + line).join('\n')}
+except Exception as e:
+    print(f"Error in export: {str(e)}")
+    import traceback
+    traceback.print_exc()
+finally:
+    sys.stdout = old_stdout
+
+buffer.getvalue()
+            `);
+            
+            // Combine outputs
+            output += '\n' + exportOutput;
             
             // Check if model data is available (supports both single and multiple parts)
             if (window.partsData) {

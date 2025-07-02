@@ -19,22 +19,3 @@ output = [
     {"name": "tube", "part": tube.part, "color": "#4f46e5"},
     {"name": "boxHole", "part": boxHole.part, "color": "#10b981"}
 ]
-
-# Export each part individually and collect STL data
-parts_data = []
-for i, part_info in enumerate(output):
-    filename = f"output_part_{i}_{part_info['name']}.stl"
-    export_stl(part_info['part'], filename)
-    
-    with open(filename, 'rb') as fh:
-        stl_data = fh.read()
-    
-    parts_data.append({
-        'name': part_info['name'],
-        'color': part_info['color'],
-        'stl': to_js(stl_data, create_pyproxies=False)
-    })
-
-# Store parts data for 3D viewer (list of parts with names, colors, and STL data)
-window.partsData = to_js(parts_data, create_pyproxies=False)
-print(f"STL data ready for 3D viewer - {len(output)} parts generated")
