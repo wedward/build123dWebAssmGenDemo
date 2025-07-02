@@ -277,47 +277,186 @@ function generateParameterInputs() {
         label.className = 'block text-xs font-medium text-white/90 mb-1';
         label.textContent = paramDef.label;
         
-        const input = document.createElement('input');
-        input.type = paramDef.type;
-        input.id = `param-${paramName}`;
-        input.name = paramName;
-        input.value = paramDef.default;
-        input.min = paramDef.min;
-        input.max = paramDef.max;
-        input.step = paramDef.step;
-        input.className = 'w-full px-3 py-2 bg-white/5 border border-white/30 rounded-xl text-white placeholder-white/50 focus:ring-2 focus:ring-blue-400/60 focus:border-blue-400/60 transition-all duration-300 backdrop-blur-sm hover:bg-white/10 hover:border-white/40';
+        let inputElement;
         
-        if (paramDef.description) {
-            input.title = paramDef.description;
-        }
-        
-        // Add input validation and Enter key handling
-        input.addEventListener('input', (event) => {
-            const value = parseFloat(event.target.value);
-            if (isNaN(value) || value < paramDef.min || value > paramDef.max) {
-                event.target.classList.add('border-red-300', 'ring-red-200');
-                event.target.classList.remove('border-white/30');
-            } else {
-                event.target.classList.remove('border-red-300', 'ring-red-200');
-                event.target.classList.add('border-white/30');
-            }
-        });
-        
-        input.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                if (!runButton.disabled) {
-                    runPythonCode();
+        if (paramDef.type === 'bool') {
+            // Create toggle switch for boolean parameters
+            const toggleContainer = document.createElement('div');
+            toggleContainer.className = 'flex items-center space-x-3';
+            
+            const toggle = document.createElement('div');
+            toggle.className = 'relative inline-flex items-center h-6 rounded-full w-11 transition-colors duration-200 ease-in-out cursor-pointer bg-white/20 hover:bg-white/30';
+            toggle.id = `param-${paramName}`;
+            
+            const toggleSwitch = document.createElement('div');
+            toggleSwitch.className = 'inline-block w-4 h-4 transform bg-white rounded-full transition duration-200 ease-in-out translate-x-1';
+            
+            const hiddenInput = document.createElement('input');
+            hiddenInput.type = 'checkbox';
+            hiddenInput.checked = paramDef.default;
+            hiddenInput.className = 'hidden';
+            hiddenInput.name = paramName;
+            
+            // Update toggle appearance based on state
+            function updateToggleState() {
+                if (hiddenInput.checked) {
+                    toggle.classList.add('bg-blue-600');
+                    toggle.classList.remove('bg-white/20');
+                    toggleSwitch.classList.add('translate-x-6');
+                    toggleSwitch.classList.remove('translate-x-1');
+                } else {
+                    toggle.classList.remove('bg-blue-600');
+                    toggle.classList.add('bg-white/20');
+                    toggleSwitch.classList.remove('translate-x-6');
+                    toggleSwitch.classList.add('translate-x-1');
                 }
             }
-        });
+            
+            // Initialize toggle state
+            updateToggleState();
+            
+            // Toggle click handler
+            toggle.addEventListener('click', () => {
+                hiddenInput.checked = !hiddenInput.checked;
+                updateToggleState();
+            });
+            
+            // Enter key handling for toggle
+            toggle.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    hiddenInput.checked = !hiddenInput.checked;
+                    updateToggleState();
+                    if (event.key === 'Enter' && !runButton.disabled) {
+                        runPythonCode();
+                    }
+                }
+            });
+            
+            // Make toggle focusable
+            toggle.setAttribute('tabindex', '0');
+            toggle.setAttribute('role', 'switch');
+            toggle.setAttribute('aria-checked', hiddenInput.checked);
+            
+            if (paramDef.description) {
+                toggle.title = paramDef.description;
+            }
+            
+            toggle.appendChild(toggleSwitch);
+            toggleContainer.appendChild(toggle);
+            
+            const toggleLabel = document.createElement('span');
+            toggleLabel.className = 'text-xs text-white/70';
+            toggleLabel.textContent = hiddenInput.checked ? 'On' : 'Off';
+            toggleContainer.appendChild(toggleLabel);
+            
+            // Update label text when toggle changes
+            toggle.addEventListener('click', () => {
+                setTimeout(() => {
+                    toggleLabel.textContent = hiddenInput.checked ? 'On' : 'Off';
+                    toggle.setAttribute('aria-checked', hiddenInput.checked);
+                }, 0);
+            });
+            
+            inputContainer.appendChild(label);
+            inputContainer.appendChild(toggleContainer);
+            
+            // Store reference to the hidden input
+            inputElement = hiddenInput;
+            
+        } else if (paramDef.type === 'string' || paramDef.type === 'text') {
+            // Create text input for string parameters
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.id = `param-${paramName}`;
+            input.name = paramName;
+            input.value = paramDef.default || '';
+            input.placeholder = paramDef.placeholder || '';
+            input.className = 'w-full px-3 py-2 bg-white/5 border border-white/30 rounded-xl text-white placeholder-white/50 focus:ring-2 focus:ring-blue-400/60 focus:border-blue-400/60 transition-all duration-300 backdrop-blur-sm hover:bg-white/10 hover:border-white/40';
+            
+            if (paramDef.description) {
+                input.title = paramDef.description;
+            }
+            
+            // Add Enter key handling for string inputs
+            input.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    if (!runButton.disabled) {
+                        runPythonCode();
+                    }
+                }
+            });
+            
+            // Optional validation for string length
+            if (paramDef.minLength || paramDef.maxLength) {
+                input.addEventListener('input', (event) => {
+                    const value = event.target.value;
+                    const minLen = paramDef.minLength || 0;
+                    const maxLen = paramDef.maxLength || Infinity;
+                    
+                    if (value.length < minLen || value.length > maxLen) {
+                        event.target.classList.add('border-red-300', 'ring-red-200');
+                        event.target.classList.remove('border-white/30');
+                    } else {
+                        event.target.classList.remove('border-red-300', 'ring-red-200');
+                        event.target.classList.add('border-white/30');
+                    }
+                });
+            }
+            
+            inputContainer.appendChild(label);
+            inputContainer.appendChild(input);
+            
+            inputElement = input;
+            
+        } else {
+            // Create regular input for number parameters
+            const input = document.createElement('input');
+            input.type = paramDef.type;
+            input.id = `param-${paramName}`;
+            input.name = paramName;
+            input.value = paramDef.default;
+            input.min = paramDef.min;
+            input.max = paramDef.max;
+            input.step = paramDef.step;
+            input.className = 'w-full px-3 py-2 bg-white/5 border border-white/30 rounded-xl text-white placeholder-white/50 focus:ring-2 focus:ring-blue-400/60 focus:border-blue-400/60 transition-all duration-300 backdrop-blur-sm hover:bg-white/10 hover:border-white/40';
+            
+            if (paramDef.description) {
+                input.title = paramDef.description;
+            }
+            
+            // Add input validation and Enter key handling
+            input.addEventListener('input', (event) => {
+                const value = parseFloat(event.target.value);
+                if (isNaN(value) || value < paramDef.min || value > paramDef.max) {
+                    event.target.classList.add('border-red-300', 'ring-red-200');
+                    event.target.classList.remove('border-white/30');
+                } else {
+                    event.target.classList.remove('border-red-300', 'ring-red-200');
+                    event.target.classList.add('border-white/30');
+                }
+            });
+            
+            input.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    if (!runButton.disabled) {
+                        runPythonCode();
+                    }
+                }
+            });
+            
+            inputContainer.appendChild(label);
+            inputContainer.appendChild(input);
+            
+            inputElement = input;
+        }
         
-        inputContainer.appendChild(label);
-        inputContainer.appendChild(input);
         parameterContainer.appendChild(inputContainer);
         
         // Store reference to input
-        parameterInputs[paramName] = input;
+        parameterInputs[paramName] = inputElement;
     });
 }
 
@@ -367,9 +506,20 @@ function getParameterValues() {
     const values = {};
     
     Object.entries(parameterInputs).forEach(([paramName, input]) => {
-        const value = parseFloat(input.value);
-        const defaultValue = parameterDefinitions[paramName].default;
-        values[paramName] = isNaN(value) ? defaultValue : value;
+        const paramDef = parameterDefinitions[paramName];
+        
+        if (paramDef.type === 'bool') {
+            // For boolean parameters, get the checked state
+            values[paramName] = input.checked;
+        } else if (paramDef.type === 'string' || paramDef.type === 'text') {
+            // For string parameters, get the text value
+            values[paramName] = input.value || paramDef.default || '';
+        } else {
+            // For number parameters, parse the value
+            const value = parseFloat(input.value);
+            const defaultValue = paramDef.default;
+            values[paramName] = isNaN(value) ? defaultValue : value;
+        }
     });
     
     return values;
@@ -402,7 +552,21 @@ function createParameterizedScript(params) {
     // Then, replace template placeholders with actual parameter values
     Object.entries(params).forEach(([paramName, value]) => {
         const placeholder = `{{${paramName}}}`;
-        script = script.replace(placeholder, value);
+        const paramDef = parameterDefinitions[paramName];
+        
+        // Convert values to appropriate Python format
+        let pythonValue;
+        if (paramDef.type === 'bool') {
+            pythonValue = value ? 'True' : 'False';
+        } else if (paramDef.type === 'string' || paramDef.type === 'text') {
+            // Escape quotes and wrap string in Python quotes
+            const escapedValue = value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+            pythonValue = `"${escapedValue}"`;
+        } else {
+            pythonValue = value;
+        }
+        
+        script = script.replace(placeholder, pythonValue);
     });
     
     return script;
