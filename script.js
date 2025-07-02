@@ -10,6 +10,7 @@ const clearOutputButton = document.getElementById('clear-output');
 const downloadButton = document.getElementById('download-stl');
 const resetViewButton = document.getElementById('reset-view');
 const mobileToggle = document.getElementById('mobile-toggle');
+const reloadParamsButton = document.getElementById('reload-params');
 
 // Dynamic parameter storage
 let parameterDefinitions = {};
@@ -594,6 +595,7 @@ runButton.addEventListener('click', runPythonCode);
 clearOutputButton.addEventListener('click', clearOutput);
 downloadButton.addEventListener('click', downloadStl);
 resetViewButton.addEventListener('click', resetCameraView);
+reloadParamsButton.addEventListener('click', reloadParameterDefinitions);
 mobileToggle.addEventListener('click', toggleSidebar);
 
 // Window resize handler for mobile layout
@@ -629,6 +631,67 @@ async function loadParameterDefinitionsEarly() {
         
         // Still try to initialize Pyodide even if parameter loading fails
         throw error;
+    }
+}
+
+// Reload parameter definitions from generate.py
+async function reloadParameterDefinitions() {
+    try {
+        // Disable the reload button during reload
+        reloadParamsButton.disabled = true;
+        reloadParamsButton.innerHTML = '<svg class="w-3 h-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg><span>Reloading...</span>';
+        
+        statusSpan.textContent = 'Reloading parameter definitions...';
+        statusSpan.className = 'text-sm status-pulse';
+        
+        // Preserve existing parameter values
+        const existingValues = {};
+        Object.entries(parameterInputs).forEach(([paramName, input]) => {
+            existingValues[paramName] = input.value;
+        });
+        
+        // Re-fetch the script
+        const response = await fetch('generate.py?' + Date.now()); // Cache-busting
+        const scriptContent = await response.text();
+        
+        // Parse new parameter definitions
+        const newParameterDefinitions = parseParameterDefinitions(scriptContent);
+        
+        // Update stored data
+        parameterDefinitions = newParameterDefinitions;
+        basePythonScript = scriptContent;
+        
+        // Clear existing inputs
+        parameterInputs = {};
+        
+        // Generate new input fields
+        generateParameterInputs();
+        
+        // Restore existing values where parameter names match
+        Object.entries(existingValues).forEach(([paramName, value]) => {
+            if (parameterInputs[paramName]) {
+                parameterInputs[paramName].value = value;
+            }
+        });
+        
+        statusSpan.textContent = 'Parameters reloaded successfully! 🔄';
+        statusSpan.className = 'text-sm status-success';
+        
+        // Show a brief success message
+        setTimeout(() => {
+            if (isInitialized) {
+                statusSpan.textContent = 'Python environment ready! 🚀';
+            }
+        }, 2000);
+        
+    } catch (error) {
+        console.error('Failed to reload parameter definitions:', error);
+        statusSpan.textContent = 'Failed to reload parameters ❌';
+        statusSpan.className = 'text-sm status-error';
+    } finally {
+        // Re-enable the reload button
+        reloadParamsButton.disabled = false;
+        reloadParamsButton.innerHTML = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg><span>Reload</span>';
     }
 }
 
