@@ -1,7 +1,7 @@
 # Export script - handles STL generation and data preparation for 3D viewer
 # This script expects an 'output' variable to be defined with the following structure:
 # output = [
-#     {"name": "part_name", "part": part_geometry, "color": "#hex_color"},
+#     {"name": "part_name", "part": part_geometry, "color": "#hex_color", "opacity": 0.8},  # opacity is optional
 #     ...
 # ]
 
@@ -37,15 +37,17 @@ for i, part_info in enumerate(output):
     with open(filename, 'rb') as fh:
         stl_data = fh.read()
     
-    # Prepare part data for JavaScript
-    parts_data.append({
+    # Prepare part data for JavaScript (include opacity if specified)
+    part_data = {
         'name': part_info['name'],
         'color': part_info['color'],
-        'stl': to_js(stl_data, create_pyproxies=False)
-    })
+        'stl': to_js(stl_data, create_pyproxies=False),
+    }
+    # Add opacity if specified
+    if 'opacity' in part_info:
+        part_data['opacity'] = part_info['opacity']
     
-    print(f"Exported part '{part_info['name']}' to {filename}")
-
+    parts_data.append(part_data)
+    
 # Store parts data for 3D viewer (list of parts with names, colors, and STL data)
 window.partsData = to_js(parts_data, create_pyproxies=False)
-print(f"Export complete - {len(output)} parts ready for 3D viewer") 

@@ -315,4 +315,68 @@ body {
         width: calc(100vw - 1rem);
         max-width: 280px;
     }
-} 
+}
+
+/* Console tab styles */
+.console-tab {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.console-tab:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.console-tab.active {
+    background: rgba(59, 130, 246, 0.3);
+    color: #ffffff;
+    border-color: rgba(59, 130, 246, 0.5);
+}
+
+.console-content {
+    display: block;
+}
+
+.console-content.hidden {
+    display: none !important;
+}
+
+/* Console-specific styling */
+#js-output:empty::before {
+    content: "JavaScript output will appear here...";
+    color: #6b7280;
+    font-style: italic;
+    opacity: 0.7;
+}
+
+#python-output:empty::before {
+    content: "Python output will appear here...";
+    color: #6b7280;
+    font-style: italic;
+    opacity: 0.7;
+}
+
+/* Smooth scrollbar for both consoles */
+#js-output::-webkit-scrollbar,
+#python-output::-webkit-scrollbar {
+    width: 4px;
+}
+
+#js-output::-webkit-scrollbar-track,
+#python-output::-webkit-scrollbar-track {
+    background: #374151;
+    border-radius: 2px;
+}
+
+#js-output::-webkit-scrollbar-thumb,
+#python-output::-webkit-scrollbar-thumb {
+    background: #6b7280;
+    border-radius: 2px;
+}
+
+#js-output::-webkit-scrollbar-thumb:hover,
+#python-output::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+}

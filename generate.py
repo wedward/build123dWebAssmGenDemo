@@ -16,6 +16,6 @@ with BuildPart() as tube:
     Cylinder(radius=tubeSize / 2, height=thickness * 4, rotation=(0, 0, 90))
 
 output = [
-    {"name": "tube", "part": tube.part, "color": "#4f46e5"},
+    {"name": "tube", "part": tube.part, "color": "#4f46e5", "opacity": 0.6},
     {"name": "boxHole", "part": boxHole.part, "color": "#10b981"}
 ]

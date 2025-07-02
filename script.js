@@ -4,7 +4,8 @@ let isInitialized = false;
 // DOM elements
 const runButton = document.getElementById('run-code');
 const runText = document.getElementById('run-text');
-const outputDiv = document.getElementById('output');
+const jsOutputDiv = document.getElementById('js-output');
+const pythonOutputDiv = document.getElementById('python-output');
 const statusSpan = document.getElementById('status');
 const clearOutputButton = document.getElementById('clear-output');
 const expandConsoleButton = document.getElementById('expand-console');
@@ -14,6 +15,8 @@ const downloadButton = document.getElementById('download-stl');
 const resetViewButton = document.getElementById('reset-view');
 const mobileToggle = document.getElementById('mobile-toggle');
 const reloadParamsButton = document.getElementById('reload-params');
+const jsConsoleTab = document.getElementById('js-console-tab');
+const pythonConsoleTab = document.getElementById('python-console-tab');
 
 // Dynamic parameter storage
 let parameterDefinitions = {};
@@ -37,15 +40,48 @@ let sidebarOpen = false;
 
 // Console expansion state
 let consoleExpanded = true;
+let activeConsole = 'js'; // 'js' or 'python'
 
 // Global console functions
+function appendToJsConsole(message) {
+    jsOutputDiv.innerText += message + '\n';
+    jsOutputDiv.scrollTop = jsOutputDiv.scrollHeight;
+}
+
+function appendToPythonConsole(message) {
+    pythonOutputDiv.innerText += message + '\n';
+    pythonOutputDiv.scrollTop = pythonOutputDiv.scrollHeight;
+}
+
 function appendToConsole(message) {
-    outputDiv.innerText += message + '\n';
-    outputDiv.scrollTop = outputDiv.scrollHeight;
+    // Default to JS console for backward compatibility
+    appendToJsConsole(message);
 }
 
 function clearConsole() {
-    outputDiv.innerText = '';
+    jsOutputDiv.innerText = '';
+    pythonOutputDiv.innerText = '';
+}
+
+function clearActiveConsole() {
+    if (activeConsole === 'js') {
+        jsOutputDiv.innerText = '';
+    } else {
+        pythonOutputDiv.innerText = '';
+    }
+}
+
+// Console tab switching
+function switchConsoleTab(tabName) {
+    activeConsole = tabName;
+    
+    // Update tab active states
+    jsConsoleTab.classList.toggle('active', tabName === 'js');
+    pythonConsoleTab.classList.toggle('active', tabName === 'python');
+    
+    // Show/hide console content
+    jsOutputDiv.classList.toggle('hidden', tabName !== 'js');
+    pythonOutputDiv.classList.toggle('hidden', tabName !== 'python');
 }
 
 // Unified logging function - updates both console and status
@@ -107,7 +143,7 @@ function initThreeJS() {
     // Create renderer with full screen dimensions
     renderer = new THREE.WebGLRenderer({ 
         antialias: true,
-        alpha: false,
+        alpha: true,  // Enable alpha for transparency support
         powerPreference: "high-performance"
     });
     
@@ -116,7 +152,10 @@ function initThreeJS() {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.outputColorSpace = THREE.SRGBColorSpace; // Updated property name
+    
+    // Enable proper sorting for transparency
+    renderer.sortObjects = true;
     
     // Ensure canvas fills full screen
     renderer.domElement.style.position = 'absolute';
@@ -376,35 +415,35 @@ function loadPartsInViewer(partsData) {
         scene.remove(mesh);
     });
     currentMeshes = [];
-    
-    // Handle both single part (legacy) and multiple parts format
-    const parts = Array.isArray(partsData) ? partsData : [{ 
-        name: 'model', 
-        color: '#4f46e5', 
-        stl: partsData 
-    }];
-    
+
     const allMeshes = [];
     
-    parts.forEach((partData, index) => {
+    partsData.forEach((partData, index) => {
         // Parse STL data
         const stlData = new Uint8Array(partData.stl);
         const geometry = loader.parse(stlData.buffer);
         
-        // Create material with part-specific color
+        // Create material with part-specific color and opacity
         const color = partData.color ? partData.color : getDefaultColor(index);
+        const opacity = partData.opacity !== undefined ? partData.opacity : 1.0;
+        
         const material = new THREE.MeshPhongMaterial({ 
             color: color,
             shininess: 100,
             specular: 0x333333,
-            transparent: false
+            transparent: opacity < 1.0,
+            opacity: opacity
         });
-        
         // Create mesh
         const mesh = new THREE.Mesh(geometry, material);
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         mesh.name = partData.name || `part_${index}`;
+        
+        // Set render order for transparent objects (higher numbers render later)
+        if (material.transparent) {
+            mesh.renderOrder = 1;
+        }
         
         allMeshes.push(mesh);
         currentMeshes.push(mesh);
@@ -595,13 +634,15 @@ function toggleConsole() {
     
     if (consoleExpanded) {
         // Show console
-        outputDiv.style.display = 'block';
+        jsOutputDiv.style.display = 'block';
+        pythonOutputDiv.style.display = activeConsole === 'python' ? 'block' : 'none';
         resizeHandle.style.display = 'flex';
         buttonText.textContent = 'Hide';
         buttonIcon.setAttribute('d', 'M17 10l-5 5-5-5'); // Down arrow
     } else {
         // Hide console
-        outputDiv.style.display = 'none';
+        jsOutputDiv.style.display = 'none';
+        pythonOutputDiv.style.display = 'none';
         resizeHandle.style.display = 'none';
         buttonText.textContent = 'Show';
         buttonIcon.setAttribute('d', 'M7 14l5-5 5 5'); // Up arrow
@@ -624,7 +665,8 @@ function initializeConsoleResize() {
 function startResize(e) {
     isResizing = true;
     startY = e.clientY || e.touches[0].clientY;
-    startHeight = parseInt(document.defaultView.getComputedStyle(outputDiv).height, 10);
+    const activeOutputDiv = activeConsole === 'js' ? jsOutputDiv : pythonOutputDiv;
+    startHeight = parseInt(document.defaultView.getComputedStyle(activeOutputDiv).height, 10);
     
     document.addEventListener('mousemove', handleResize);
     document.addEventListener('mouseup', stopResize);
@@ -648,7 +690,9 @@ function handleResize(e) {
     const maxHeight = 400;
     const constrainedHeight = Math.max(minHeight, Math.min(maxHeight, newHeight));
     
-    outputDiv.style.height = constrainedHeight + 'px';
+    // Apply the new height to both consoles so they stay in sync
+    jsOutputDiv.style.height = constrainedHeight + 'px';
+    pythonOutputDiv.style.height = constrainedHeight + 'px';
 }
 
 function stopResize() {
@@ -726,7 +770,7 @@ buffer.getvalue()
                 appendToConsole('=== MODEL GENERATION OUTPUT ===');
                 generationOutput.split('\n').forEach(line => {
                     if (line.trim()) {
-                        appendToConsole(line.trim());
+                        appendToPythonConsole(line.trim());
                     }
                 });
             }
@@ -762,20 +806,14 @@ buffer.getvalue()
                 appendToConsole('=== EXPORT PROCESS OUTPUT ===');
                 exportOutput.split('\n').forEach(line => {
                     if (line.trim()) {
-                        appendToConsole(line.trim());
+                        appendToPythonConsole(line.trim());
                     }
                 });
             }
             
             // Check if model data is available (supports both single and multiple parts)
             if (window.partsData) {
-                // Multiple parts format
-                const partsData = Array.from(window.partsData).map(part => ({
-                    name: part.name,
-                    color: part.color,
-                    stl: new Uint8Array(part.stl)
-                }));
-                
+                const partsData = window.partsData;
                 currentParts = partsData;
                 
                 loadPartsInViewer(partsData);
@@ -799,7 +837,7 @@ buffer.getvalue()
         }
 
     } catch (error) {
-        outputDiv.innerText = `Runtime Error: ${error.message}`;
+        appendToConsole(`Runtime Error: ${error.message}`);
         updateStatus(`❌ Outer Runtime Error: ${error.message}`, 'Generation failed ❌', 'text-sm status-error');
     } finally {
         // Reset button state
@@ -811,7 +849,7 @@ buffer.getvalue()
 
 // Clear output
 function clearOutput() {
-    outputDiv.innerText = '';
+    clearActiveConsole();
 }
 
 // Event listeners
@@ -822,6 +860,8 @@ downloadButton.addEventListener('click', downloadStl);
 resetViewButton.addEventListener('click', resetCameraView);
 reloadParamsButton.addEventListener('click', reloadParameterDefinitions);
 mobileToggle.addEventListener('click', toggleSidebar);
+jsConsoleTab.addEventListener('click', () => switchConsoleTab('js'));
+pythonConsoleTab.addEventListener('click', () => switchConsoleTab('python'));
 
 // Window resize handler for mobile layout
 window.addEventListener('resize', () => {
