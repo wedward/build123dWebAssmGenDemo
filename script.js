@@ -123,7 +123,7 @@ async function initializePyodide() {
         
         isInitialized = true;
         runButton.disabled = false;
-        runText.textContent = 'Generate Model';
+        runText.innerHTML = 'Generate Model';
         updateStatus('🚀 Python environment ready!', 'Python environment ready! 🚀', 'text-sm status-success');
         
         runPythonCode();
@@ -131,7 +131,7 @@ async function initializePyodide() {
     } catch (error) {
         console.error('Failed to initialize Pyodide:', error);
         updateStatus('❌ Failed to initialize Python environment: ' + error.message, 'Failed to initialize Python environment ❌', 'text-sm status-error');
-        runText.textContent = 'Initialization Failed';
+        runText.innerHTML = 'Initialization Failed';
     }
 }
 
@@ -975,7 +975,7 @@ async function runPythonCode() {
 
     // Show loading state
     runButton.disabled = true;
-    runText.textContent = '⏳ Generating...';
+    runText.innerHTML = '<div class="loading-spinner"></div>Generating...';
     runText.parentElement.classList.add('loading');
     
     // Close mobile sidebar if open
@@ -1098,7 +1098,7 @@ buffer.getvalue()
     } finally {
         // Reset button state
         runButton.disabled = false;
-        runText.textContent = 'Generate Model';
+        runText.innerHTML = 'Generate Model';
         runText.parentElement.classList.remove('loading');
     }
 }
