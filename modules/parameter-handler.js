@@ -49,11 +49,7 @@ export class ParameterHandler {
             const inputContainer = document.createElement('div');
             inputContainer.className = 'parameter-group';
             
-            const label = document.createElement('label');
-            label.htmlFor = `param-${paramName}`;
-            label.className = 'block text-xs font-medium text-white/90 mb-1';
-            label.textContent = paramDef.label;
-            
+            const label = this.createLabel(paramName, paramDef);
             let inputElement;
             
             if (paramDef.type === 'bool') {
@@ -65,10 +61,51 @@ export class ParameterHandler {
             }
             
             parameterContainer.appendChild(inputContainer);
-            
-            // Store reference to input
             this.parameterInputs[paramName] = inputElement;
         });
+    }
+
+    // Helper method to create consistent labels
+    createLabel(paramName, paramDef) {
+        const label = document.createElement('label');
+        label.htmlFor = `param-${paramName}`;
+        label.className = 'block text-xs font-medium text-white/90 mb-1';
+        label.textContent = paramDef.label;
+        return label;
+    }
+
+    // Helper method to set up common input properties
+    setupCommonInputProperties(input, paramName, paramDef) {
+        input.id = `param-${paramName}`;
+        input.name = paramName;
+        
+        if (paramDef.description) {
+            input.title = paramDef.description;
+        }
+        
+        // Add Enter key handling
+        input.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                this.triggerGeneration();
+            }
+        });
+    }
+
+    // Helper method to apply validation styling
+    applyValidationStyling(input, isValid) {
+        if (isValid) {
+            input.classList.remove('border-red-300', 'ring-red-200');
+            input.classList.add('border-white/30');
+        } else {
+            input.classList.add('border-red-300', 'ring-red-200');
+            input.classList.remove('border-white/30');
+        }
+    }
+
+    // Helper method to get standard input classes
+    getStandardInputClasses() {
+        return 'w-full px-3 py-2 bg-white/5 border border-white/30 rounded-xl text-white placeholder-white/50 focus:ring-2 focus:ring-blue-400/60 focus:border-blue-400/60 transition-all duration-300 backdrop-blur-sm hover:bg-white/10 hover:border-white/40';
     }
 
     createBooleanInput(paramName, paramDef, label, container) {
@@ -89,50 +126,45 @@ export class ParameterHandler {
         hiddenInput.className = 'hidden';
         hiddenInput.name = paramName;
         
+        if (paramDef.description) {
+            toggle.title = paramDef.description;
+        }
+        
         // Update toggle appearance based on state
         const updateToggleState = () => {
-            if (hiddenInput.checked) {
-                toggle.classList.add('bg-blue-600');
-                toggle.classList.remove('bg-white/20');
-                toggleSwitch.classList.add('translate-x-6');
-                toggleSwitch.classList.remove('translate-x-1');
-            } else {
-                toggle.classList.remove('bg-blue-600');
-                toggle.classList.add('bg-white/20');
-                toggleSwitch.classList.remove('translate-x-6');
-                toggleSwitch.classList.add('translate-x-1');
-            }
+            const isChecked = hiddenInput.checked;
+            toggle.classList.toggle('bg-blue-600', isChecked);
+            toggle.classList.toggle('bg-white/20', !isChecked);
+            toggleSwitch.classList.toggle('translate-x-6', isChecked);
+            toggleSwitch.classList.toggle('translate-x-1', !isChecked);
         };
         
         // Initialize toggle state
         updateToggleState();
         
         // Toggle click handler
-        toggle.addEventListener('click', () => {
+        const toggleHandler = () => {
             hiddenInput.checked = !hiddenInput.checked;
             updateToggleState();
-        });
+        };
+        
+        toggle.addEventListener('click', toggleHandler);
         
         // Enter key handling for toggle
         toggle.addEventListener('keydown', (event) => {
             if (event.key === 'Enter' || event.key === ' ') {
                 event.preventDefault();
-                hiddenInput.checked = !hiddenInput.checked;
-                updateToggleState();
+                toggleHandler();
                 if (event.key === 'Enter') {
                     this.triggerGeneration();
                 }
             }
         });
         
-        // Make toggle focusable
+        // Set accessibility attributes
         toggle.setAttribute('tabindex', '0');
         toggle.setAttribute('role', 'switch');
         toggle.setAttribute('aria-checked', hiddenInput.checked);
-        
-        if (paramDef.description) {
-            toggle.title = paramDef.description;
-        }
         
         toggle.appendChild(toggleSwitch);
         toggleContainer.appendChild(toggle);
@@ -143,12 +175,14 @@ export class ParameterHandler {
         toggleContainer.appendChild(toggleLabel);
         
         // Update label text when toggle changes
-        toggle.addEventListener('click', () => {
+        const updateToggleLabel = () => {
             setTimeout(() => {
                 toggleLabel.textContent = hiddenInput.checked ? 'On' : 'Off';
                 toggle.setAttribute('aria-checked', hiddenInput.checked);
             }, 0);
-        });
+        };
+        
+        toggle.addEventListener('click', updateToggleLabel);
         
         container.appendChild(label);
         container.appendChild(toggleContainer);
@@ -157,41 +191,22 @@ export class ParameterHandler {
     }
 
     createStringInput(paramName, paramDef, label, container) {
-        // Create text input for string parameters
         const input = document.createElement('input');
         input.type = 'text';
-        input.id = `param-${paramName}`;
-        input.name = paramName;
         input.value = paramDef.default || '';
         input.placeholder = paramDef.placeholder || '';
-        input.className = 'w-full px-3 py-2 bg-white/5 border border-white/30 rounded-xl text-white placeholder-white/50 focus:ring-2 focus:ring-blue-400/60 focus:border-blue-400/60 transition-all duration-300 backdrop-blur-sm hover:bg-white/10 hover:border-white/40';
+        input.className = this.getStandardInputClasses();
         
-        if (paramDef.description) {
-            input.title = paramDef.description;
-        }
+        this.setupCommonInputProperties(input, paramName, paramDef);
         
-        // Add Enter key handling for string inputs
-        input.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                this.triggerGeneration();
-            }
-        });
-        
-        // Optional validation for string length
+        // Add string-specific validation
         if (paramDef.minLength || paramDef.maxLength) {
             input.addEventListener('input', (event) => {
                 const value = event.target.value;
                 const minLen = paramDef.minLength || 0;
                 const maxLen = paramDef.maxLength || Infinity;
-                
-                if (value.length < minLen || value.length > maxLen) {
-                    event.target.classList.add('border-red-300', 'ring-red-200');
-                    event.target.classList.remove('border-white/30');
-                } else {
-                    event.target.classList.remove('border-red-300', 'ring-red-200');
-                    event.target.classList.add('border-white/30');
-                }
+                const isValid = value.length >= minLen && value.length <= maxLen;
+                this.applyValidationStyling(event.target, isValid);
             });
         }
         
@@ -202,38 +217,21 @@ export class ParameterHandler {
     }
 
     createNumberInput(paramName, paramDef, label, container) {
-        // Create regular input for number parameters
         const input = document.createElement('input');
         input.type = paramDef.type;
-        input.id = `param-${paramName}`;
-        input.name = paramName;
         input.value = paramDef.default;
         input.min = paramDef.min;
         input.max = paramDef.max;
         input.step = paramDef.step;
-        input.className = 'w-full px-3 py-2 bg-white/5 border border-white/30 rounded-xl text-white placeholder-white/50 focus:ring-2 focus:ring-blue-400/60 focus:border-blue-400/60 transition-all duration-300 backdrop-blur-sm hover:bg-white/10 hover:border-white/40';
+        input.className = this.getStandardInputClasses();
         
-        if (paramDef.description) {
-            input.title = paramDef.description;
-        }
+        this.setupCommonInputProperties(input, paramName, paramDef);
         
-        // Add input validation and Enter key handling
+        // Add number-specific validation
         input.addEventListener('input', (event) => {
             const value = parseFloat(event.target.value);
-            if (isNaN(value) || value < paramDef.min || value > paramDef.max) {
-                event.target.classList.add('border-red-300', 'ring-red-200');
-                event.target.classList.remove('border-white/30');
-            } else {
-                event.target.classList.remove('border-red-300', 'ring-red-200');
-                event.target.classList.add('border-white/30');
-            }
-        });
-        
-        input.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                this.triggerGeneration();
-            }
+            const isValid = !isNaN(value) && value >= paramDef.min && value <= paramDef.max;
+            this.applyValidationStyling(event.target, isValid);
         });
         
         container.appendChild(label);
@@ -289,41 +287,17 @@ export class ParameterHandler {
 
     async reloadParameterDefinitions() {
         try {
-            // Disable the reload button during reload
-            this.reloadParamsButton.disabled = true;
-            this.reloadParamsButton.innerHTML = '<svg class="w-3 h-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg><span>Reloading...</span>';
-            
+            this.setReloadButtonState(true);
             this.statusManager.updateStatus('🔄 Reloading parameter definitions...', 'Reloading parameter definitions...', 'text-sm status-pulse');
             
             // Preserve existing parameter values
-            const existingValues = {};
-            Object.entries(this.parameterInputs).forEach(([paramName, input]) => {
-                existingValues[paramName] = input.value;
-            });
+            const existingValues = this.preserveExistingValues();
             
-            // Re-fetch the script
-            const response = await fetch('generate.py?' + Date.now()); // Cache-busting
-            const scriptContent = await response.text();
+            // Re-fetch and parse script
+            await this.refetchAndParseScript();
             
-            // Parse new parameter definitions
-            const newParameterDefinitions = this.parseParameterDefinitions(scriptContent);
-            
-            // Update stored data
-            this.parameterDefinitions = newParameterDefinitions;
-            this.basePythonScript = scriptContent;
-            
-            // Clear existing inputs
-            this.parameterInputs = {};
-            
-            // Generate new input fields
-            this.generateParameterInputs();
-            
-            // Restore existing values where parameter names match
-            Object.entries(existingValues).forEach(([paramName, value]) => {
-                if (this.parameterInputs[paramName]) {
-                    this.parameterInputs[paramName].value = value;
-                }
-            });
+            // Regenerate inputs and restore values
+            this.regenerateInputsAndRestoreValues(existingValues);
             
             this.statusManager.updateStatus('✅ Parameters reloaded successfully! 🔄', 'Parameters reloaded successfully! 🔄', 'text-sm status-success');
             
@@ -331,9 +305,62 @@ export class ParameterHandler {
             console.error('Failed to reload parameter definitions:', error);
             this.statusManager.updateStatus('❌ Failed to reload parameter definitions: ' + error.message, 'Failed to reload parameters ❌', 'text-sm status-error');
         } finally {
-            // Re-enable the reload button
-            this.reloadParamsButton.disabled = false;
-            this.reloadParamsButton.innerHTML = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg><span>Reload</span>';
+            this.setReloadButtonState(false);
+        }
+    }
+
+    // Helper method to manage reload button state
+    setReloadButtonState(isLoading) {
+        this.reloadParamsButton.disabled = isLoading;
+        this.reloadParamsButton.innerHTML = isLoading 
+            ? '<svg class="w-3 h-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg><span>Reloading...</span>'
+            : '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg><span>Reload</span>';
+    }
+
+    // Helper method to preserve existing parameter values
+    preserveExistingValues() {
+        const existingValues = {};
+        Object.entries(this.parameterInputs).forEach(([paramName, input]) => {
+            existingValues[paramName] = input.value;
+        });
+        return existingValues;
+    }
+
+    // Helper method to refetch and parse script
+    async refetchAndParseScript() {
+        const response = await fetch('generate.py?' + Date.now()); // Cache-busting
+        const scriptContent = await response.text();
+        
+        // Parse new parameter definitions
+        this.parameterDefinitions = this.parseParameterDefinitions(scriptContent);
+        this.basePythonScript = scriptContent;
+    }
+
+    // Helper method to regenerate inputs and restore values
+    regenerateInputsAndRestoreValues(existingValues) {
+        // Clear existing inputs
+        this.parameterInputs = {};
+        
+        // Generate new input fields
+        this.generateParameterInputs();
+        
+        // Restore existing values where parameter names match
+        Object.entries(existingValues).forEach(([paramName, value]) => {
+            if (this.parameterInputs[paramName]) {
+                this.parameterInputs[paramName].value = value;
+            }
+        });
+    }
+
+    // Helper method to extract parameter value based on type
+    extractParameterValue(paramName, input, paramDef) {
+        if (paramDef.type === 'bool') {
+            return input.checked;
+        } else if (paramDef.type === 'string' || paramDef.type === 'text') {
+            return input.value || paramDef.default || '';
+        } else {
+            const value = parseFloat(input.value);
+            return isNaN(value) ? paramDef.default : value;
         }
     }
 
@@ -342,22 +369,22 @@ export class ParameterHandler {
         
         Object.entries(this.parameterInputs).forEach(([paramName, input]) => {
             const paramDef = this.parameterDefinitions[paramName];
-            
-            if (paramDef.type === 'bool') {
-                // For boolean parameters, get the checked state
-                values[paramName] = input.checked;
-            } else if (paramDef.type === 'string' || paramDef.type === 'text') {
-                // For string parameters, get the text value
-                values[paramName] = input.value || paramDef.default || '';
-            } else {
-                // For number parameters, parse the value
-                const value = parseFloat(input.value);
-                const defaultValue = paramDef.default;
-                values[paramName] = isNaN(value) ? defaultValue : value;
-            }
+            values[paramName] = this.extractParameterValue(paramName, input, paramDef);
         });
         
         return values;
+    }
+
+    // Helper method to convert parameter values to Python format
+    convertToPythonValue(value, paramDef) {
+        if (paramDef.type === 'bool') {
+            return value ? 'True' : 'False';
+        } else if (paramDef.type === 'string' || paramDef.type === 'text') {
+            const escapedValue = value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+            return `"${escapedValue}"`;
+        } else {
+            return value;
+        }
     }
 
     createParameterizedScript(params) {
@@ -383,23 +410,11 @@ export class ParameterHandler {
                     script.substring(lineEnd);
         }
         
-        // Then, replace template placeholders with actual parameter values
+        // Replace template placeholders with actual parameter values
         Object.entries(params).forEach(([paramName, value]) => {
             const placeholder = `{{${paramName}}}`;
             const paramDef = this.parameterDefinitions[paramName];
-            
-            // Convert values to appropriate Python format
-            let pythonValue;
-            if (paramDef.type === 'bool') {
-                pythonValue = value ? 'True' : 'False';
-            } else if (paramDef.type === 'string' || paramDef.type === 'text') {
-                // Escape quotes and wrap string in Python quotes
-                const escapedValue = value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-                pythonValue = `"${escapedValue}"`;
-            } else {
-                pythonValue = value;
-            }
-            
+            const pythonValue = this.convertToPythonValue(value, paramDef);
             script = script.replace(placeholder, pythonValue);
         });
         
