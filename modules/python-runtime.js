@@ -49,7 +49,7 @@ export class PythonRuntime {
         if (!this.isInitialized) {
             throw new Error('Python environment is not ready yet');
         }
-        
+        console.log(code)
         // Clear previous model data
         window.stlData = null;
         window.partsData = null;

@@ -10,28 +10,45 @@ export class ParameterHandler {
     }
 
     parseParameterDefinitions(scriptContent) {
-        const startMarker = '# PARAMETERS_START';
-        const endMarker = '# PARAMETERS_END';
+        // const startMarker = '# PARAMETERS_START';
+        // const endMarker = '# PARAMETERS_END';
         
-        const startIndex = scriptContent.indexOf(startMarker);
-        const endIndex = scriptContent.indexOf(endMarker);
+        // const startIndex = scriptContent.indexOf(startMarker);
+        // const endIndex = scriptContent.indexOf(endMarker);
         
-        if (startIndex === -1 || endIndex === -1) {
-            throw new Error('Parameter definitions not found in script');
-        }
+        // if (startIndex === -1 || endIndex === -1) {
+        //     throw new Error('Parameter definitions not found in script');
+        // }
         
-        // Extract the JSON between the markers
-        const paramSection = scriptContent.substring(startIndex + startMarker.length, endIndex);
+        // // Extract the JSON between the markers
+        // const paramSection = scriptContent.substring(startIndex + startMarker.length, endIndex);
         
-        // Remove comment characters and parse JSON
-        const jsonString = paramSection
-            .split('\n')
-            .map(line => line.replace(/^#\s*/, ''))
-            .join('\n')
-            .trim();
-        
+        // // Remove comment characters and parse JSON
+        // const jsonString = paramSection
+        //     .split('\n')
+        //     .map(line => line.replace(/^#\s*/, ''))
+        //     .join('\n')
+        //     .trim();
+
+//         const defaultData= `{
+// "length": {"type": "number", "default": 80.0, "min": 10, "max": 200, "step": 0.1, "label": "Length (mm)", "description": "Length of the box"},
+// "width": {"type": "number", "default": 60.0, "min": 10, "max": 200, "step": 0.1, "label": "Width (mm)", "description": "Width of the box"},
+// "thickness": {"type": "number", "default": 10.0, "min": 1, "max": 50, "step": 0.1, "label": "Thickness (mm)", "description": "Thickness of the box"},
+// "center_hole_dia": {"type": "number", "default": 22.0, "min": 0, "max": 100, "step": 0.1, "label": "Center Hole Diameter (mm)", "description": "Diameter of the center hole"},
+// "tubeSize": {"type": "number", "default": 18.0, "min": 0, "max": 100, "step": 0.1, "label": "Tube Size (mm)", "description": "Diameter of the larger half thickness hole"},
+// "include_tube": {"type": "bool", "default": true, "label": "Include Tube", "description": "Whether to include the tube part in the output"},
+// "model_name": {"type": "string", "default": "Custom Model", "label": "Model Name", "description": "A custom name for your model", "placeholder": "Enter model name..."}
+// }`
+
+        const defaultData= 
+            `{"name": "parameters", "children": [{"name": "length", "type": "num", "value": 80.0, "default": 80.0, "description": null, "enabled": true, "visible": true, "max": null, "min": null, "step": null}, {"name": "width", "type": "num", "value": 60.0, "default": 60.0, "description": null, "enabled": true, "visible": true, "max": null, "min": null, "step": null}, {"name": "thickness", "type": "num", "value": 10.0, "default": 10.0, "description": null, "enabled": true, "visible": true, "max": null, "min": null, "step": null}, {"name": "center_hole_dia", "type": "num", "value": 22.0, "default": 22.0, "description": null, "enabled": true, "visible": true, "max": null, "min": null, "step": null}, {"name": "tubeSize", "type": "num", "value": 18.0, "default": 18.0, "description": null, "enabled": true, "visible": true, "max": null, "min": null, "step": null}, {"name": "include_tube", "type": "bool", "value": true, "default": true, "description": null, "enabled": true, "visible": true, "max": null, "min": null, "step": null}, {"name": "model_name", "type": "str", "value": "Custom Model", "default": "Custom Model", "description": null, "enabled": true, "visible": true, "max": null, "min": null, "step": null}]}`
+    
+        let data = window.jsonData ? window.jsonData : defaultData
+
+        console.log(data)
+
         try {
-            return JSON.parse(jsonString);
+            return JSON.parse(data);
         } catch (error) {
             throw new Error('Invalid parameter definition JSON: ' + error.message);
         }
@@ -45,42 +62,51 @@ export class ParameterHandler {
         parameterContainer.innerHTML = '';
         
         // Generate new inputs based on parameter definitions
-        Object.entries(this.parameterDefinitions).forEach(([paramName, paramDef]) => {
+
+        console.log('>>>>>>>>>>>>>>>>>>>>>')
+        console.log(this.parameterDefinitions.children)
+
+
+        this.parameterDefinitions.children.forEach((param, index) => {
+            console.log(param)
             const inputContainer = document.createElement('div');
             inputContainer.className = 'parameter-group';
             
-            const label = this.createLabel(paramName, paramDef);
+            const label = this.createLabel(param);
             let inputElement;
             
-            if (paramDef.type === 'bool') {
-                inputElement = this.createBooleanInput(paramName, paramDef, label, inputContainer);
-            } else if (paramDef.type === 'string' || paramDef.type === 'text') {
-                inputElement = this.createStringInput(paramName, paramDef, label, inputContainer);
+            if (param.type === 'bool') {
+                inputElement = this.createBooleanInput(param, label, inputContainer);
+            } else if (param.type === 'string' || param.type === 'text') {
+                inputElement = this.createStringInput(param, label, inputContainer);
             } else {
-                inputElement = this.createNumberInput(paramName, paramDef, label, inputContainer);
+                inputElement = this.createNumberInput(param, label, inputContainer);
+                inputContainer.oninput = () => {
+                    this.parameterDefinitions.children[index].value = parseFloat(inputElement.value)
+                }
             }
             
             parameterContainer.appendChild(inputContainer);
-            this.parameterInputs[paramName] = inputElement;
+            this.parameterInputs[param.name] = inputElement;
         });
     }
 
     // Helper method to create consistent labels
-    createLabel(paramName, paramDef) {
+    createLabel(param) {
         const label = document.createElement('label');
-        label.htmlFor = `param-${paramName}`;
+        label.htmlFor = `param-${param.name}`;
         label.className = 'block text-xs font-medium text-white/90 mb-1';
-        label.textContent = paramDef.label;
+        label.textContent = param.label ? param.label : param.name;
         return label;
     }
 
     // Helper method to set up common input properties
-    setupCommonInputProperties(input, paramName, paramDef) {
-        input.id = `param-${paramName}`;
-        input.name = paramName;
+    setupCommonInputProperties(input, param) {
+        input.id = `param-${param.name}`;
+        input.name = param.name;
         
-        if (paramDef.description) {
-            input.title = paramDef.description;
+        if (param.description) {
+            input.title = param.description;
         }
         
         // Add Enter key handling
@@ -108,26 +134,26 @@ export class ParameterHandler {
         return 'w-full px-3 py-2 bg-white/5 border border-white/30 rounded-xl text-white placeholder-white/50 focus:ring-2 focus:ring-blue-400/60 focus:border-blue-400/60 transition-all duration-300 backdrop-blur-sm hover:bg-white/10 hover:border-white/40';
     }
 
-    createBooleanInput(paramName, paramDef, label, container) {
+    createBooleanInput(param, label, container) {
         // Create toggle switch for boolean parameters
         const toggleContainer = document.createElement('div');
         toggleContainer.className = 'flex items-center space-x-3';
         
         const toggle = document.createElement('div');
         toggle.className = 'relative inline-flex items-center h-6 rounded-full w-11 transition-colors duration-200 ease-in-out cursor-pointer bg-white/20 hover:bg-white/30';
-        toggle.id = `param-${paramName}`;
+        toggle.id = `param-${param.name}`;
         
         const toggleSwitch = document.createElement('div');
         toggleSwitch.className = 'inline-block w-4 h-4 transform bg-white rounded-full transition duration-200 ease-in-out translate-x-1';
         
         const hiddenInput = document.createElement('input');
         hiddenInput.type = 'checkbox';
-        hiddenInput.checked = paramDef.default;
+        hiddenInput.checked = param.default;
         hiddenInput.className = 'hidden';
-        hiddenInput.name = paramName;
+        hiddenInput.name = param.name;
         
-        if (paramDef.description) {
-            toggle.title = paramDef.description;
+        if (param.description) {
+            toggle.title = param.description;
         }
         
         // Update toggle appearance based on state
@@ -190,25 +216,25 @@ export class ParameterHandler {
         return hiddenInput;
     }
 
-    createStringInput(paramName, paramDef, label, container) {
+    createStringInput(param, label, container) {
         const input = document.createElement('input');
         input.type = 'text';
-        input.value = paramDef.default || '';
-        input.placeholder = paramDef.placeholder || '';
+        input.value = param.default || '';
+        input.placeholder = param.placeholder || '';
         input.className = this.getStandardInputClasses();
         
-        this.setupCommonInputProperties(input, paramName, paramDef);
+        this.setupCommonInputProperties(input, param);
         
-        // Add string-specific validation
-        if (paramDef.minLength || paramDef.maxLength) {
-            input.addEventListener('input', (event) => {
-                const value = event.target.value;
-                const minLen = paramDef.minLength || 0;
-                const maxLen = paramDef.maxLength || Infinity;
-                const isValid = value.length >= minLen && value.length <= maxLen;
-                this.applyValidationStyling(event.target, isValid);
-            });
-        }
+        // // Add string-specific validation
+        // if (param.minLength || paramDef.maxLength) {
+        //     input.addEventListener('input', (event) => {
+        //         const value = event.target.value;
+        //         const minLen = paramDef.minLength || 0;
+        //         const maxLen = paramDef.maxLength || Infinity;
+        //         const isValid = value.length >= minLen && value.length <= maxLen;
+        //         this.applyValidationStyling(event.target, isValid);
+        //     });
+        // }
         
         container.appendChild(label);
         container.appendChild(input);
@@ -216,21 +242,21 @@ export class ParameterHandler {
         return input;
     }
 
-    createNumberInput(paramName, paramDef, label, container) {
+    createNumberInput(param, label, container) {
         const input = document.createElement('input');
-        input.type = paramDef.type;
-        input.value = paramDef.default;
-        input.min = paramDef.min;
-        input.max = paramDef.max;
-        input.step = paramDef.step;
+        input.type = param.type;
+        input.value = param.default;
+        input.min = param.min ? param.min : param.value/5;
+        input.max = param.max ? param.max : param.value*5;
+        input.step = param.step ? param.step : 1;
         input.className = this.getStandardInputClasses();
         
-        this.setupCommonInputProperties(input, paramName, paramDef);
+        this.setupCommonInputProperties(input, param);
         
         // Add number-specific validation
         input.addEventListener('input', (event) => {
             const value = parseFloat(event.target.value);
-            const isValid = !isNaN(value) && value >= paramDef.min && value <= paramDef.max;
+            const isValid = !isNaN(value) && value >= param.min && value <= param.max;
             this.applyValidationStyling(event.target, isValid);
         });
         
@@ -285,29 +311,29 @@ export class ParameterHandler {
         }
     }
 
-    async reloadParameterDefinitions() {
-        try {
-            this.setReloadButtonState(true);
-            this.statusManager.updateStatus('🔄 Reloading parameter definitions...', 'Reloading parameter definitions...', 'text-sm status-pulse');
+    // async reloadParameterDefinitions() {
+    //     try {
+    //         this.setReloadButtonState(true);
+    //         this.statusManager.updateStatus('🔄 Reloading parameter definitions...', 'Reloading parameter definitions...', 'text-sm status-pulse');
             
-            // Preserve existing parameter values
-            const existingValues = this.preserveExistingValues();
+    //         // Preserve existing parameter values
+    //         const existingValues = this.preserveExistingValues();
             
-            // Re-fetch and parse script
-            await this.refetchAndParseScript();
+    //         // Re-fetch and parse script
+    //         await this.refetchAndParseScript();
             
-            // Regenerate inputs and restore values
-            this.regenerateInputsAndRestoreValues(existingValues);
+    //         // Regenerate inputs and restore values
+    //         this.regenerateInputsAndRestoreValues(existingValues);
             
-            this.statusManager.updateStatus('✅ Parameters reloaded successfully! 🔄', 'Parameters reloaded successfully! 🔄', 'text-sm status-success');
+    //         this.statusManager.updateStatus('✅ Parameters reloaded successfully! 🔄', 'Parameters reloaded successfully! 🔄', 'text-sm status-success');
             
-        } catch (error) {
-            console.error('Failed to reload parameter definitions:', error);
-            this.statusManager.updateStatus('❌ Failed to reload parameter definitions: ' + error.message, 'Failed to reload parameters ❌', 'text-sm status-error');
-        } finally {
-            this.setReloadButtonState(false);
-        }
-    }
+    //     } catch (error) {
+    //         console.error('Failed to reload parameter definitions:', error);
+    //         this.statusManager.updateStatus('❌ Failed to reload parameter definitions: ' + error.message, 'Failed to reload parameters ❌', 'text-sm status-error');
+    //     } finally {
+    //         this.setReloadButtonState(false);
+    //     }
+    // }
 
     // Helper method to manage reload button state
     setReloadButtonState(isLoading) {
@@ -317,14 +343,14 @@ export class ParameterHandler {
             : '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg><span>Reload</span>';
     }
 
-    // Helper method to preserve existing parameter values
-    preserveExistingValues() {
-        const existingValues = {};
-        Object.entries(this.parameterInputs).forEach(([paramName, input]) => {
-            existingValues[paramName] = input.value;
-        });
-        return existingValues;
-    }
+    // // Helper method to preserve existing parameter values
+    // preserveExistingValues() {
+    //     const existingValues = {};
+    //     Object.entries(this.parameterInputs).forEach(([paramName, input]) => {
+    //         existingValues[paramName] = input.value;
+    //     });
+    //     return existingValues;
+    // }
 
     // Helper method to refetch and parse script
     async refetchAndParseScript() {
@@ -336,87 +362,73 @@ export class ParameterHandler {
         this.basePythonScript = scriptContent;
     }
 
-    // Helper method to regenerate inputs and restore values
-    regenerateInputsAndRestoreValues(existingValues) {
-        // Clear existing inputs
-        this.parameterInputs = {};
+    // // Helper method to regenerate inputs and restore values
+    // regenerateInputsAndRestoreValues(existingValues) {
+    //     // Clear existing inputs
+    //     this.parameterInputs = {};
         
-        // Generate new input fields
-        this.generateParameterInputs();
+    //     // Generate new input fields
+    //     this.generateParameterInputs();
         
-        // Restore existing values where parameter names match
-        Object.entries(existingValues).forEach(([paramName, value]) => {
-            if (this.parameterInputs[paramName]) {
-                this.parameterInputs[paramName].value = value;
-            }
-        });
-    }
+    //     // Restore existing values where parameter names match
+    //     Object.entries(existingValues).forEach(([paramName, value]) => {
+    //         if (this.parameterInputs[paramName]) {
+    //             this.parameterInputs[paramName].value = value;
+    //         }
+    //     });
+    // }
 
     // Helper method to extract parameter value based on type
-    extractParameterValue(paramName, input, paramDef) {
-        if (paramDef.type === 'bool') {
-            return input.checked;
-        } else if (paramDef.type === 'string' || paramDef.type === 'text') {
-            return input.value || paramDef.default || '';
-        } else {
-            const value = parseFloat(input.value);
-            return isNaN(value) ? paramDef.default : value;
-        }
-    }
+    // extractParameterValue(param, input,) {
+    //     if (param.type === 'bool') {
+    //         return input.checked;
+    //     } else if (param.type === 'string' || param.type === 'text') {
+    //         return input.value || param.default || '';
+    //     } else {
+    //         const value = parseFloat(input.value);
+    //         return isNaN(value) ? paramDef.default : value;
+    //     }
+    // }
 
     getParameterValues() {
         const values = {};
         
-        Object.entries(this.parameterInputs).forEach(([paramName, input]) => {
-            const paramDef = this.parameterDefinitions[paramName];
-            values[paramName] = this.extractParameterValue(paramName, input, paramDef);
+        Object.entries(this.parameterInputs).forEach((param) => {
+            values[param.name] = param.value
         });
         
         return values;
     }
 
     // Helper method to convert parameter values to Python format
-    convertToPythonValue(value, paramDef) {
-        if (paramDef.type === 'bool') {
-            return value ? 'True' : 'False';
-        } else if (paramDef.type === 'string' || paramDef.type === 'text') {
-            const escapedValue = value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-            return `"${escapedValue}"`;
-        } else {
-            return value;
-        }
-    }
+    // convertToPythonValue(value, paramDef) {
+    //     if (paramDef.type === 'bool') {
+    //         return value ? 'True' : 'False';
+    //     } else if (paramDef.type === 'string' || paramDef.type === 'text') {
+    //         const escapedValue = value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    //         return `"${escapedValue}"`;
+    //     } else {
+    //         return value;
+    //     }
+    // }
 
     createParameterizedScript(params) {
         let script = this.basePythonScript;
         
-        // Auto-generate variable assignments right after PARAMETERS_END
-        const endMarker = '# PARAMETERS_END';
+        // Auto-generate variable assignments right after PARAuMETERS_END
+
+        // const startMarker = '###START'
+        // const startMarkerIndex = script.indexOf(startMarker)
+        const endMarker = '###DO NOT MODIFY';
         const endMarkerIndex = script.indexOf(endMarker);
+
+        const jsonStr = JSON.stringify(this.parameterDefinitions, null, 2);
         
         if (endMarkerIndex !== -1) {
-            // Generate variable assignment lines
-            const variableAssignments = '\n\n# Auto-generated parameter variables\n' +
-                Object.keys(this.parameterDefinitions)
-                    .map(paramName => `${paramName} = {{${paramName}}}`)
-                    .join('\n');
-            
-            // Find the end of the PARAMETERS_END line
-            const lineEnd = script.indexOf('\n', endMarkerIndex);
-            
-            // Insert variable assignments right after PARAMETERS_END
-            script = script.substring(0, lineEnd) + 
-                    variableAssignments + 
-                    script.substring(lineEnd);
-        }
         
-        // Replace template placeholders with actual parameter values
-        Object.entries(params).forEach(([paramName, value]) => {
-            const placeholder = `{{${paramName}}}`;
-            const paramDef = this.parameterDefinitions[paramName];
-            const pythonValue = this.convertToPythonValue(value, paramDef);
-            script = script.replace(placeholder, pythonValue);
-        });
+        script = `_custom_data='''${jsonStr}'''` +
+                script.substring(endMarkerIndex);
+        }
         
         return script;
     }
