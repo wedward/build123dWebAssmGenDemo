@@ -49,7 +49,7 @@ class WebAssmPyApp {
     async initialize() {
         try {
             // Load parameters first for immediate UI feedback
-            await this.parameterHandler.loadParameterDefinitionsEarly();
+
             
             // Initialize Three.js viewer
             this.threeViewer.init();
@@ -68,6 +68,7 @@ class WebAssmPyApp {
             
             // Auto-run the first generation
             this.runPythonCode();
+            await this.parameterHandler.loadParameterDefinitionsEarly();
             
         } catch (error) {
             console.error('Failed to initialize application:', error);
@@ -96,11 +97,12 @@ class WebAssmPyApp {
         this.uiControls.closeSidebarIfOpen();
 
         try {
+            
             // Get current parameter values
-            const params = this.parameterHandler.getParameterValues();
+            // const params = this.parameterHandler.getParameterValues();
             
             // Create parameterized script
-            const code = this.parameterHandler.createParameterizedScript(params);
+            const code = this.parameterHandler.createParameterizedScript();
             
             // Run the Python code
             await this.pythonRuntime.runCode(code);

@@ -10,47 +10,16 @@ export class ParameterHandler {
     }
 
     parseParameterDefinitions(scriptContent) {
-        // const startMarker = '# PARAMETERS_START';
-        // const endMarker = '# PARAMETERS_END';
-        
-        // const startIndex = scriptContent.indexOf(startMarker);
-        // const endIndex = scriptContent.indexOf(endMarker);
-        
-        // if (startIndex === -1 || endIndex === -1) {
-        //     throw new Error('Parameter definitions not found in script');
-        // }
-        
-        // // Extract the JSON between the markers
-        // const paramSection = scriptContent.substring(startIndex + startMarker.length, endIndex);
-        
-        // // Remove comment characters and parse JSON
-        // const jsonString = paramSection
-        //     .split('\n')
-        //     .map(line => line.replace(/^#\s*/, ''))
-        //     .join('\n')
-        //     .trim();
-
-//         const defaultData= `{
-// "length": {"type": "number", "default": 80.0, "min": 10, "max": 200, "step": 0.1, "label": "Length (mm)", "description": "Length of the box"},
-// "width": {"type": "number", "default": 60.0, "min": 10, "max": 200, "step": 0.1, "label": "Width (mm)", "description": "Width of the box"},
-// "thickness": {"type": "number", "default": 10.0, "min": 1, "max": 50, "step": 0.1, "label": "Thickness (mm)", "description": "Thickness of the box"},
-// "center_hole_dia": {"type": "number", "default": 22.0, "min": 0, "max": 100, "step": 0.1, "label": "Center Hole Diameter (mm)", "description": "Diameter of the center hole"},
-// "tubeSize": {"type": "number", "default": 18.0, "min": 0, "max": 100, "step": 0.1, "label": "Tube Size (mm)", "description": "Diameter of the larger half thickness hole"},
-// "include_tube": {"type": "bool", "default": true, "label": "Include Tube", "description": "Whether to include the tube part in the output"},
-// "model_name": {"type": "string", "default": "Custom Model", "label": "Model Name", "description": "A custom name for your model", "placeholder": "Enter model name..."}
-// }`
-
-        const defaultData= 
-            `{"name": "parameters", "children": [{"name": "length", "type": "num", "value": 80.0, "default": 80.0, "description": null, "enabled": true, "visible": true, "max": null, "min": null, "step": null}, {"name": "width", "type": "num", "value": 60.0, "default": 60.0, "description": null, "enabled": true, "visible": true, "max": null, "min": null, "step": null}, {"name": "thickness", "type": "num", "value": 10.0, "default": 10.0, "description": null, "enabled": true, "visible": true, "max": null, "min": null, "step": null}, {"name": "center_hole_dia", "type": "num", "value": 22.0, "default": 22.0, "description": null, "enabled": true, "visible": true, "max": null, "min": null, "step": null}, {"name": "tubeSize", "type": "num", "value": 18.0, "default": 18.0, "description": null, "enabled": true, "visible": true, "max": null, "min": null, "step": null}, {"name": "include_tube", "type": "bool", "value": true, "default": true, "description": null, "enabled": true, "visible": true, "max": null, "min": null, "step": null}, {"name": "model_name", "type": "str", "value": "Custom Model", "default": "Custom Model", "description": null, "enabled": true, "visible": true, "max": null, "min": null, "step": null}]}`
     
-        let data = window.jsonData ? window.jsonData : defaultData
-
-        console.log(data)
-
-        try {
-            return JSON.parse(data);
-        } catch (error) {
-            throw new Error('Invalid parameter definition JSON: ' + error.message);
+        if ('jsonData' in window){
+            console.log(window.jsonData)
+            try { return JSON.parse(window.jsonData) }
+            catch (error) {
+                throw new Error('Invalid parameter definition JSON: ' + error.message);
+            }
+        }
+        else {
+            console.log('INITIAL RUN -- USING PARAMETER DEFAULTS')
         }
     }
 
@@ -63,8 +32,8 @@ export class ParameterHandler {
         
         // Generate new inputs based on parameter definitions
 
-        console.log('>>>>>>>>>>>>>>>>>>>>>')
-        console.log(this.parameterDefinitions.children)
+        // console.log('>>>>>>>>>>>>>>>>>>>>>')
+        // console.log(this.parameterDefinitions.children)
 
 
         this.parameterDefinitions.children.forEach((param, index) => {
@@ -77,14 +46,34 @@ export class ParameterHandler {
             
             if (param.type === 'bool') {
                 inputElement = this.createBooleanInput(param, label, inputContainer);
-            } else if (param.type === 'string' || param.type === 'text') {
-                inputElement = this.createStringInput(param, label, inputContainer);
-            } else {
+                inputElement.addEventListener('change', () => {
+                    this.parameterDefinitions.children[index].value = inputElement.checked
+                    console.log( 'input det: ' + 'bool' )
+                });
+
+                
+                
+            }            
+            else if (param.type === 'num') {
                 inputElement = this.createNumberInput(param, label, inputContainer);
                 inputContainer.oninput = () => {
                     this.parameterDefinitions.children[index].value = parseFloat(inputElement.value)
+                    console.log('input det: num')
                 }
-            }
+            } 
+            else  {
+                inputElement = this.createStringInput(param, label, inputContainer);
+                // inputContainer.oninput = () => {
+                //     this.parameterDefinitions.children[index].value = inputElement.value
+                //     console.log('input det: string' + inputElement.vale) 
+                // }
+
+                inputElement.addEventListener('input', () => {
+                    this.parameterDefinitions.children[index].value = inputElement.value;
+                    console.log('input det: string' + inputElement.value) 
+                });
+            } 
+
             
             parameterContainer.appendChild(inputContainer);
             this.parameterInputs[param.name] = inputElement;
@@ -171,6 +160,7 @@ export class ParameterHandler {
         // Toggle click handler
         const toggleHandler = () => {
             hiddenInput.checked = !hiddenInput.checked;
+            hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
             updateToggleState();
         };
         
@@ -225,17 +215,6 @@ export class ParameterHandler {
         
         this.setupCommonInputProperties(input, param);
         
-        // // Add string-specific validation
-        // if (param.minLength || paramDef.maxLength) {
-        //     input.addEventListener('input', (event) => {
-        //         const value = event.target.value;
-        //         const minLen = paramDef.minLength || 0;
-        //         const maxLen = paramDef.maxLength || Infinity;
-        //         const isValid = value.length >= minLen && value.length <= maxLen;
-        //         this.applyValidationStyling(event.target, isValid);
-        //     });
-        // }
-        
         container.appendChild(label);
         container.appendChild(input);
         
@@ -271,15 +250,15 @@ export class ParameterHandler {
             const response = await fetch('generate.py');
             this.basePythonScript = await response.text();
             
-            // Parse parameter definitions from the script (if not already done)
-            if (Object.keys(this.parameterDefinitions).length === 0) {
-                this.parameterDefinitions = this.parseParameterDefinitions(this.basePythonScript);
-            }
+            // // Parse parameter definitions from the script (if not already done)
+            // if (Object.keys(this.parameterDefinitions).length === 0) {
+            //     this.parameterDefinitions = this.parseParameterDefinitions(this.basePythonScript);
+            // }
             
-            // Generate dynamic input fields (if not already done)
-            if (Object.keys(this.parameterInputs).length === 0) {
-                this.generateParameterInputs();
-            }
+            // // Generate dynamic input fields (if not already done)
+            // if (Object.keys(this.parameterInputs).length === 0) {
+            //     this.generateParameterInputs();
+            // }
             
         } catch (error) {
             console.error('Could not load generate.py:', error);
@@ -412,13 +391,15 @@ export class ParameterHandler {
     //     }
     // }
 
-    createParameterizedScript(params) {
+    createParameterizedScript() {
         let script = this.basePythonScript;
-        
-        // Auto-generate variable assignments right after PARAuMETERS_END
 
-        // const startMarker = '###START'
-        // const startMarkerIndex = script.indexOf(startMarker)
+
+        // no parameters have been initialized, so we return the python script who will always generate the init params.
+        if (window.jsonData==null){
+            return script
+        }
+
         const endMarker = '###DO NOT MODIFY';
         const endMarkerIndex = script.indexOf(endMarker);
 

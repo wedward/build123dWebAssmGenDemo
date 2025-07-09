@@ -1,36 +1,48 @@
 _custom_data=None ###DO NOT MODIFY
 
+try:
+    import js
+    WEBPY = True
+except ImportError:
+    WEBPY = False
+
+if not WEBPY:
+    from build123d import *
+    from utils import P, ParameterGroup, loadParam
+
 #PARAMETERS
 l = P('length', 'num', 80.0)
 w =  P('width',  'num', 60.0)
-t = P('thickness', 'num', 10.0)
-dia = P('center_hole_dia', 'num', 22.0)
-tube = P('tubeSize', 'num', 18.0)
-include = P('include_tube', 'bool', True)
-name = P('model_name','string', 'Custom Model', placeholder='ENTER MODEL NAME')
+h = P('height', 'num', 10.0)
+include_companion = P('include_companion', 'bool', False)
+rot = P('rotation', 'str', '( 0 , 0 , 0 )')
+ali = P('align', 'str', "( Align.CENTER , Align.CENTER , Align.CENTER )")
+mode = P('mode', 'str', 'Mode.ADD')
 
 if _custom_data:
     p = loadParam(_custom_data)
 else:
-    p = ParameterGroup ([l, w, t, dia, tube, include, name])
+    p = ParameterGroup ([l, w, h, rot, include_companion, ali, mode])
 
-window.jsonData = p.dumps()
+if WEBPY:
+    window.jsonData = p.dumps()
+else:
+    pass# print(p.dumps())
 
 ##BUILD
-with BuildPart() as boxHole:
-    Box(p.length, p.width, p.thickness)
-    Cylinder(radius=p.center_hole_dia / 2, height=p.thickness, mode=Mode.SUBTRACT)
-
-with BuildPart() as tube:
-    Cylinder(radius=p.tubeSize / 2, height=p.thickness * 4, rotation=(0, 0, 90))
+with BuildPart() as box:
+    if p.include_companion: 
+        Box(50,50,50)
+    Box(length = p.length,
+        width = p.width, 
+        height = p.height,
+        rotation= eval(p.rotation.value),
+        align = eval(p.align.value),
+        mode = eval(p.mode.value)
+        )
 
 ##OUTPUT
 output = []
-
-output.append({"name": "boxHole", "part": boxHole.part, "color": "#10b981"})
-
-if p.include_tube:
-    output.append({"name": "tube", "part": tube.part, "color": "#4f46e5", "opacity": 0.6})
-    
+output.append({"name": "box", "part": box.part, "color": "#10b981"})
 
 
