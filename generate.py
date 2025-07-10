@@ -43,6 +43,6 @@ with BuildPart() as box:
 
 ##OUTPUT
 output = []
-output.append({"name": "box", "part": box.part, "color": "#10b981" "opacity": "0.75"})
+output.append({"name": "box", "part": box.part, "color": "#10b981", "opacity": 0.75})
 
 
