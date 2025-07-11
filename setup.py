@@ -58,6 +58,8 @@ class P:
     max: float | None = None
     min: float | None = None
     step: float | None = None
+
+    prev: str | None = None
     
     
     def __post_init__(self):
@@ -75,45 +77,45 @@ class P:
                 
         return f'{self.name } [{self.type}]: {self.value}'
     
-    def __eq__(self, other):
-        return self.value == other
+    # def __eq__(self, other):
+    #     return self.value == other
 
-    def __add__(self, other):
-        return self.value + other
+    # def __add__(self, other):
+    #     return self.value + other
 
-    def __radd__(self, other):
-        return other + self.value
+    # def __radd__(self, other):
+    #     return other + self.value
 
-    def __sub__(self, other):
-        return self.value - other
+    # def __sub__(self, other):
+    #     return self.value - other
 
-    def __rsub__(self, other):
-        return other - self.value
+    # def __rsub__(self, other):
+    #     return other - self.value
 
-    def __mul__(self, other):
-        return self.value * other
+    # def __mul__(self, other):
+    #     return self.value * other
 
-    def __rmul__(self, other):
-        return other * self.value
+    # def __rmul__(self, other):
+    #     return other * self.value
 
-    def __truediv__(self, other):
-        return self.value / other
+    # def __truediv__(self, other):
+    #     return self.value / other
 
-    def __rtruediv__(self, other):
-        return other / self.value
+    # def __rtruediv__(self, other):
+    #     return other / self.value
 
-    def __int__(self):
-        return int(self.value)
+    # def __int__(self):
+    #     return int(self.value)
 
-    def __float__(self):
-        return float(self.value)
+    # def __float__(self):
+    #     return float(self.value)
 
-    def __str__(self):
-        return str(self.value)
+    # def __str__(self):
+    #     return str(self.value)
 
 
-    def __bool__(self):
-        return bool(self.value)
+    # def __bool__(self):
+    #     return bool(self.value)
     
     
     

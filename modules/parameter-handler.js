@@ -9,7 +9,7 @@ export class ParameterHandler {
         this.setupEventListeners();
     }
 
-    parseParameterDefinitions(scriptContent) {
+    parseParameterDefinitions() {
     
         if ('jsonData' in window){
             console.log(window.jsonData)
@@ -137,7 +137,7 @@ export class ParameterHandler {
         
         const hiddenInput = document.createElement('input');
         hiddenInput.type = 'checkbox';
-        hiddenInput.checked = param.default;
+        hiddenInput.checked = param.value;
         hiddenInput.className = 'hidden';
         hiddenInput.name = param.name;
         
@@ -209,7 +209,7 @@ export class ParameterHandler {
     createStringInput(param, label, container) {
         const input = document.createElement('input');
         input.type = 'text';
-        input.value = param.default || '';
+        input.value = param.value || '';
         input.placeholder = param.placeholder || '';
         input.className = this.getStandardInputClasses();
         
@@ -224,7 +224,7 @@ export class ParameterHandler {
     createNumberInput(param, label, container) {
         const input = document.createElement('input');
         input.type = param.type;
-        input.value = param.default;
+        input.value = param.value;
         input.min = param.min ? param.min : param.value/5;
         input.max = param.max ? param.max : param.value*5;
         input.step = param.step ? param.step : 1;
@@ -273,7 +273,7 @@ export class ParameterHandler {
             const scriptContent = await response.text();
             
             // Parse parameter definitions from the script
-            this.parameterDefinitions = this.parseParameterDefinitions(scriptContent);
+            this.parameterDefinitions = this.parseParameterDefinitions();
             
             // Generate dynamic input fields immediately
             this.generateParameterInputs();
@@ -290,29 +290,35 @@ export class ParameterHandler {
         }
     }
 
-    // async reloadParameterDefinitions() {
-    //     try {
-    //         this.setReloadButtonState(true);
-    //         this.statusManager.updateStatus('🔄 Reloading parameter definitions...', 'Reloading parameter definitions...', 'text-sm status-pulse');
+    async reloadParameterDefinitions() {
+        try {
+            this.setReloadButtonState(true);
+            this.statusManager.updateStatus('🔄 Reloading parameter definitions...', 'Reloading parameter definitions...', 'text-sm status-pulse');
             
-    //         // Preserve existing parameter values
-    //         const existingValues = this.preserveExistingValues();
+            // Preserve existing parameter values
+            // const existingValues = this.preserveExistingValues();
             
-    //         // Re-fetch and parse script
-    //         await this.refetchAndParseScript();
+            // Re-fetch and parse script
+            // await this.refetchAndParseScript();
             
-    //         // Regenerate inputs and restore values
-    //         this.regenerateInputsAndRestoreValues(existingValues);
+            // Regenerate inputs and restore values
+            // this.regenerateInputsAndRestoreValues(existingValues);
+
+            // Parse parameter definitions from the script
+            this.parameterDefinitions = this.parseParameterDefinitions();
             
-    //         this.statusManager.updateStatus('✅ Parameters reloaded successfully! 🔄', 'Parameters reloaded successfully! 🔄', 'text-sm status-success');
+            // Generate dynamic input fields immediately
+            this.generateParameterInputs();
             
-    //     } catch (error) {
-    //         console.error('Failed to reload parameter definitions:', error);
-    //         this.statusManager.updateStatus('❌ Failed to reload parameter definitions: ' + error.message, 'Failed to reload parameters ❌', 'text-sm status-error');
-    //     } finally {
-    //         this.setReloadButtonState(false);
-    //     }
-    // }
+            this.statusManager.updateStatus('✅ Parameters reloaded successfully! 🔄', 'Parameters reloaded successfully! 🔄', 'text-sm status-success');
+            
+        } catch (error) {
+            console.error('Failed to reload parameter definitions:', error);
+            this.statusManager.updateStatus('❌ Failed to reload parameter definitions: ' + error.message, 'Failed to reload parameters ❌', 'text-sm status-error');
+        } finally {
+            this.setReloadButtonState(false);
+        }
+    }
 
     // Helper method to manage reload button state
     setReloadButtonState(isLoading) {

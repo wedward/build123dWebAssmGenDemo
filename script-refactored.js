@@ -106,6 +106,12 @@ class WebAssmPyApp {
             
             // Run the Python code
             await this.pythonRuntime.runCode(code);
+
+            if (window.jsonData){
+                console.log('UPDATING UI')
+                this.parameterHandler.reloadParameterDefinitions()
+
+            }
             
             // Check if model data is available (supports both single and multiple parts)
             if (window.partsData) {

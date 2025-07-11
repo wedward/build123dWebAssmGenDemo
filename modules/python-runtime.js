@@ -79,6 +79,8 @@ finally:
 
 buffer.getvalue()
             `);
+
+            
             
             // Display generation output
             if (generationOutput) {
